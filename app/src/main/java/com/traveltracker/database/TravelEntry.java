@@ -1,0 +1,67 @@
+package com.traveltracker.database;
+
+import java.util.List;
+
+public class TravelEntry {
+    private long id;
+    private String title;
+    private String createdAt;
+    private List<Note> notes;
+    private List<Photo> photos;
+
+    // Getters i Setters
+    public long getId() { return id; }
+    public void setId(long id) { this.id = id; }
+
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+
+    public String getCreatedAt() { return createdAt; }
+    public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
+
+    public List<Note> getNotes() { return notes; }
+    public void setNotes(List<Note> notes) { this.notes = notes; }
+
+    public List<Photo> getPhotos() { return photos; }
+    public void setPhotos(List<Photo> photos) { this.photos = photos; }
+}
+
+public class Note {
+    private long id;
+    private long entryId;
+    private String text;
+    private int order;
+
+    // Getters i Setters
+    public long getId() { return id; }
+    public void setId(long id) { this.id = id; }
+
+    public long getEntryId() { return entryId; }
+    public void setEntryId(long entryId) { this.entryId = entryId; }
+
+    public String getText() { return text; }
+    public void setText(String text) { this.text = text; }
+
+    public int getOrder() { return order; }
+    public void setOrder(int order) { this.order = order; }
+}
+
+public class Photo {
+    private long id;
+    private long entryId;
+    private String path;
+    private int order;
+
+    // Getters i Setters
+    public long getId() { return id; }
+    public void setId(long id) { this.id = id; }
+
+    public long getEntryId() { return entryId; }
+    public void setEntryId(long entryId) { this.entryId = entryId; }
+
+    public String getPath() { return path; }
+    public void setPath(String path) { this.path = path; }
+
+    public int getOrder() { return order; }
+    public void setOrder(int order) { this.order = order; }
+}

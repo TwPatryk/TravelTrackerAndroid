@@ -67,6 +67,13 @@ public class MainActivity extends AppCompatActivity {
             if (id == R.id.nav_all_entries) {
                 clearFilters();
                 loadEntries();
+            } else if (item.getGroupId() == R.id.group_entries) {
+                for (TravelEntry entry : allEntries) {
+                    if (entry.getId() == id) {
+                        openAddEditFragment(entry);
+                        break;
+                    }
+                }
             }
             drawerLayout.closeDrawers();
             return true;
@@ -102,6 +109,18 @@ public class MainActivity extends AppCompatActivity {
     private void loadEntries() {
         allEntries = dbHelper.getAllEntries();
         applyFilters();
+        updateDrawerMenu();
+    }
+
+    private void updateDrawerMenu() {
+        NavigationView navigationView = findViewById(R.id.nav_view);
+        android.view.Menu menu = navigationView.getMenu();
+        menu.removeGroup(R.id.group_entries);
+
+        for (TravelEntry entry : allEntries) {
+            menu.add(R.id.group_entries, (int) entry.getId(), android.view.Menu.NONE, entry.getTitle())
+                    .setIcon(R.drawable.ic_list);
+        }
     }
 
     private void setupFilters() {

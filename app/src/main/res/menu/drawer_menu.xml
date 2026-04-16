@@ -6,4 +6,11 @@
         android:title="All Entries"
         android:icon="@drawable/ic_list"/>
 
+    <item android:title="Your Trips">
+        <menu>
+            <!-- Grupa dla dynamicznych wpisów -->
+            <group android:id="@+id/group_entries" />
+        </menu>
+    </item>
+
 </menu>

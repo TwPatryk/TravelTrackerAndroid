@@ -21,53 +21,38 @@
             android:padding="12dp"
             android:background="@android:drawable/editbox_background"/>
 
-        <!-- Notatki -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Notes"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="8dp"/>
-
+        <!-- Zawartość (Notatki i Zdjęcia) -->
         <LinearLayout
-            android:id="@+id/notes_container"
+            android:id="@+id/items_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"/>
+            android:orientation="vertical"
+            android:layout_marginTop="16dp"/>
 
-        <Button
-            android:id="@+id/btn_add_note"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="+ Add Note"
-            android:backgroundTint="@color/primary"
-            android:layout_marginTop="8dp"/>
-
-        <!-- Zdjęcia -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Photos"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="8dp"/>
-
+        <!-- Przyciski dodawania -->
         <LinearLayout
-            android:id="@+id/photos_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"/>
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp"
+            android:gravity="center">
 
-        <Button
-            android:id="@+id/btn_add_photo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="+ Add Photo"
-            android:backgroundTint="@color/primary"
-            android:layout_marginTop="8dp"/>
+            <Button
+                android:id="@+id/btn_add_note"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="+ Note"
+                android:backgroundTint="@color/primary"
+                android:layout_marginEnd="8dp"/>
+
+            <Button
+                android:id="@+id/btn_add_photo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="+ Photo"
+                android:backgroundTint="@color/primary"
+                android:layout_marginStart="8dp"/>
+        </LinearLayout>
 
         <!-- Przyciski -->
         <LinearLayout

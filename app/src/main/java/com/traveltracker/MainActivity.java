@@ -15,6 +15,7 @@ import com.google.android.material.navigation.NavigationView;
 import com.traveltracker.adapter.EntryAdapter;
 import com.traveltracker.database.DatabaseHelper;
 import com.traveltracker.database.TravelEntry;
+import com.traveltracker.fragment.AddEditEntryFragment;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +36,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main_wyrzuc);
+        setContentView(R.layout.activity_main);
 
         dbHelper = new DatabaseHelper(this);
         allEntries = new ArrayList<>();
@@ -44,8 +45,8 @@ public class MainActivity extends AppCompatActivity {
         initViews();
         setupDrawer();
         setupRecyclerView();
-        loadEntries();
         setupFilters();
+        loadEntries();
     }
 
     private void initViews() {

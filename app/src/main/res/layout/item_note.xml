@@ -17,12 +17,13 @@
         android:padding="12dp"
         android:background="@android:drawable/editbox_background"/>
 
-    <Button
+    <ImageButton
         android:id="@+id/btn_delete_note"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:text="✕"
+        android:src="@android:drawable/ic_menu_delete"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:textColor="@color/delete_red"/>
+        android:tint="@color/delete_red"
+        android:contentDescription="Delete note"/>
 
 </LinearLayout>

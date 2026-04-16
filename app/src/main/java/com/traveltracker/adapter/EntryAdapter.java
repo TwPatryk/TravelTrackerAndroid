@@ -45,11 +45,12 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
         TravelEntry entry = entries.get(position);
         holder.titleTextView.setText(entry.getTitle());
 
-        // Wyświetl liczbę notatek i zdjęć
+        // Wyświetl liczbę notatek, zdjęć i pinezek
         int notesCount = entry.getNotes() != null ? entry.getNotes().size() : 0;
         int photosCount = entry.getPhotos() != null ? entry.getPhotos().size() : 0;
+        int pinsCount = entry.getMapPins() != null ? entry.getMapPins().size() : 0;
 
-        holder.infoTextView.setText("📝 " + notesCount + " · 📷 " + photosCount);
+        holder.infoTextView.setText("📝 " + notesCount + " · 📷 " + photosCount + " · 📍 " + pinsCount);
 
         holder.itemView.setOnClickListener(v -> listener.onEntryClick(entry));
         holder.itemView.setOnLongClickListener(v -> {

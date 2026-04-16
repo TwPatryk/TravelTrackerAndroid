@@ -8,6 +8,7 @@ public class TravelEntry {
     private String createdAt;
     private List<Note> notes;
     private List<Photo> photos;
+    private List<MapPin> mapPins;
 
     // Getters i Setters
     public long getId() { return id; }
@@ -24,4 +25,7 @@ public class TravelEntry {
 
     public List<Photo> getPhotos() { return photos; }
     public void setPhotos(List<Photo> photos) { this.photos = photos; }
+
+    public List<MapPin> getMapPins() { return mapPins; }
+    public void setMapPins(List<MapPin> pins) { this.mapPins = pins; }
 }

@@ -1,9 +1,11 @@
 package com.traveltracker.database;
 
-public class Photo extends EntryItem {
+public class MapPin extends EntryItem {
     private long id;
     private long entryId;
-    private String path;
+    private String label;
+    private double latitude;
+    private double longitude;
     private int order;
 
     // Getters i Setters
@@ -13,8 +15,14 @@ public class Photo extends EntryItem {
     public long getEntryId() { return entryId; }
     public void setEntryId(long entryId) { this.entryId = entryId; }
 
-    public String getPath() { return path; }
-    public void setPath(String path) { this.path = path; }
+    public String getLabel() { return label; }
+    public void setLabel(String label) { this.label = label; }
+
+    public double getLatitude() { return latitude; }
+    public void setLatitude(double latitude) { this.latitude = latitude; }
+
+    public double getLongitude() { return longitude; }
+    public void setLongitude(double longitude) { this.longitude = longitude; }
 
     @Override
     public int getOrder() { return order; }
@@ -23,7 +31,7 @@ public class Photo extends EntryItem {
 
     @Override
     public boolean isNote() { return false; }
-
+    
     @Override
-    public boolean isPhoto() { return true; }
+    public boolean isMapPin() { return true; }
 }

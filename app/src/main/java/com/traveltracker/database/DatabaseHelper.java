@@ -12,7 +12,7 @@ import java.util.List;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "travel_tracker.db";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
 
     // Tabela główna
     private static final String TABLE_ENTRIES = "entries";
@@ -32,6 +32,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_PHOTO_ID = "id";
     private static final String COLUMN_PHOTO_PATH = "photo_path";
     private static final String COLUMN_PHOTO_ORDER = "photo_order";
+
+    // Tabela pinezek mapy
+    private static final String TABLE_PINS = "map_pins";
+    private static final String COLUMN_PIN_ID = "id";
+    private static final String COLUMN_PIN_LABEL = "label";
+    private static final String COLUMN_PIN_LAT = "latitude";
+    private static final String COLUMN_PIN_LON = "longitude";
+    private static final String COLUMN_PIN_ORDER = "pin_order";
 
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -63,12 +71,24 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_PHOTO_ORDER + " INTEGER, " +
                 "FOREIGN KEY(" + COLUMN_ENTRY_ID + ") REFERENCES " + TABLE_ENTRIES + "(" + COLUMN_ID + ") ON DELETE CASCADE)";
         db.execSQL(createPhotosTable);
+
+        // Tabela pinezek
+        String createPinsTable = "CREATE TABLE " + TABLE_PINS + " (" +
+                COLUMN_PIN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                COLUMN_ENTRY_ID + " INTEGER, " +
+                COLUMN_PIN_LABEL + " TEXT, " +
+                COLUMN_PIN_LAT + " REAL, " +
+                COLUMN_PIN_LON + " REAL, " +
+                COLUMN_PIN_ORDER + " INTEGER, " +
+                "FOREIGN KEY(" + COLUMN_ENTRY_ID + ") REFERENCES " + TABLE_ENTRIES + "(" + COLUMN_ID + ") ON DELETE CASCADE)";
+        db.execSQL(createPinsTable);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_NOTES);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_PHOTOS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_PINS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_ENTRIES);
         onCreate(db);
     }
@@ -104,6 +124,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 // Pobierz zdjęcia dla tego wpisu
                 entry.setPhotos(getPhotosForEntry(entry.getId()));
 
+                // Pobierz pinezki dla tego wpisu
+                entry.setMapPins(getMapPinsForEntry(entry.getId()));
+
                 entries.add(entry);
             } while (cursor.moveToNext());
         }
@@ -126,6 +149,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             entry.setCreatedAt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CREATED_AT)));
             entry.setNotes(getNotesForEntry(id));
             entry.setPhotos(getPhotosForEntry(id));
+            entry.setMapPins(getMapPinsForEntry(id));
         }
         cursor.close();
         db.close();
@@ -267,6 +291,51 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cursor.close();
 
         db.delete(TABLE_PHOTOS, COLUMN_ENTRY_ID + " = ?", new String[]{String.valueOf(entryId)});
+        db.close();
+    }
+
+    // ==================== METODY DLA PINEZEK ====================
+
+    public long insertMapPin(long entryId, String label, double lat, double lon, int order) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_ENTRY_ID, entryId);
+        values.put(COLUMN_PIN_LABEL, label);
+        values.put(COLUMN_PIN_LAT, lat);
+        values.put(COLUMN_PIN_LON, lon);
+        values.put(COLUMN_PIN_ORDER, order);
+        long id = db.insert(TABLE_PINS, null, values);
+        db.close();
+        return id;
+    }
+
+    public List<MapPin> getMapPinsForEntry(long entryId) {
+        List<MapPin> pins = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        String query = "SELECT * FROM " + TABLE_PINS + " WHERE " + COLUMN_ENTRY_ID + " = ? ORDER BY " + COLUMN_PIN_ORDER;
+        Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(entryId)});
+
+        if (cursor.moveToFirst()) {
+            do {
+                MapPin pin = new MapPin();
+                pin.setId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_PIN_ID)));
+                pin.setEntryId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENTRY_ID)));
+                pin.setLabel(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PIN_LABEL)));
+                pin.setLatitude(cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_PIN_LAT)));
+                pin.setLongitude(cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_PIN_LON)));
+                pin.setOrder(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_PIN_ORDER)));
+                pins.add(pin);
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        db.close();
+        return pins;
+    }
+
+    public void deleteAllPinsForEntry(long entryId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_PINS, COLUMN_ENTRY_ID + " = ?", new String[]{String.valueOf(entryId)});
         db.close();
     }
 }

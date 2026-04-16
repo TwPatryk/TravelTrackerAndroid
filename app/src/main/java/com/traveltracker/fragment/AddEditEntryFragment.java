@@ -1,5 +1,7 @@
 package com.traveltracker.fragment;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -11,6 +13,7 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -20,6 +23,7 @@ import androidx.fragment.app.DialogFragment;
 import com.traveltracker.R;
 import com.traveltracker.database.DatabaseHelper;
 import com.traveltracker.database.EntryItem;
+import com.traveltracker.database.MapPin;
 import com.traveltracker.database.Note;
 import com.traveltracker.database.Photo;
 import com.traveltracker.database.TravelEntry;
@@ -28,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 public class AddEditEntryFragment extends DialogFragment {
 
@@ -81,13 +86,16 @@ public class AddEditEntryFragment extends DialogFragment {
 
         Button btnAddNote = view.findViewById(R.id.btn_add_note);
         Button btnAddPhoto = view.findViewById(R.id.btn_add_photo);
+        Button btnAddPin = view.findViewById(R.id.btn_add_pin);
         Button btnSave = view.findViewById(R.id.btn_save_entry);
         Button btnCancel = view.findViewById(R.id.btn_cancel_entry);
 
         if (currentEntry != null) {
             titleInput.setText(currentEntry.getTitle());
+            itemsList.clear();
             if (currentEntry.getNotes() != null) itemsList.addAll(currentEntry.getNotes());
             if (currentEntry.getPhotos() != null) itemsList.addAll(currentEntry.getPhotos());
+            if (currentEntry.getMapPins() != null) itemsList.addAll(currentEntry.getMapPins());
             
             Collections.sort(itemsList, Comparator.comparingInt(EntryItem::getOrder));
             renderItems();
@@ -106,6 +114,17 @@ public class AddEditEntryFragment extends DialogFragment {
             newPhoto.setPath("fake_path_" + System.currentTimeMillis() + ".jpg");
             newPhoto.setOrder(itemsList.size());
             itemsList.add(newPhoto);
+            renderItems();
+        });
+
+        btnAddPin.setOnClickListener(v -> {
+            MapPin newPin = new MapPin();
+            newPin.setLabel("");
+            // Default coords for testing
+            newPin.setLatitude(52.2297); 
+            newPin.setLongitude(21.0122);
+            newPin.setOrder(itemsList.size());
+            itemsList.add(newPin);
             renderItems();
         });
 
@@ -134,7 +153,37 @@ public class AddEditEntryFragment extends DialogFragment {
                     }
                     @Override public void afterTextChanged(Editable s) {}
                 });
-                ImageButton btnDelete = itemView.findViewById(R.id.btn_delete_note);
+                View btnDelete = itemView.findViewById(R.id.btn_delete_note);
+                btnDelete.setOnClickListener(v -> {
+                    itemsList.remove(index);
+                    renderItems();
+                });
+            } else if (item.isMapPin()) {
+                itemView = getLayoutInflater().inflate(R.layout.item_map_pin, itemsContainer, false);
+                EditText labelInput = itemView.findViewById(R.id.pin_label);
+                TextView coordsText = itemView.findViewById(R.id.pin_coords);
+                MapPin pin = (MapPin) item;
+                
+                labelInput.setText(pin.getLabel());
+                coordsText.setText(String.format(Locale.getDefault(), "%.4f, %.4f", pin.getLatitude(), pin.getLongitude()));
+                
+                labelInput.addTextChangedListener(new TextWatcher() {
+                    @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                    @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                        pin.setLabel(s.toString());
+                    }
+                    @Override public void afterTextChanged(Editable s) {}
+                });
+
+                View btnOpenMap = itemView.findViewById(R.id.btn_open_map);
+                btnOpenMap.setOnClickListener(v -> {
+                    String uri = String.format(Locale.ENGLISH, "geo:%f,%f?q=%f,%f(%s)", 
+                        pin.getLatitude(), pin.getLongitude(), pin.getLatitude(), pin.getLongitude(), pin.getLabel());
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
+                    startActivity(intent);
+                });
+
+                View btnDelete = itemView.findViewById(R.id.btn_delete_pin);
                 btnDelete.setOnClickListener(v -> {
                     itemsList.remove(index);
                     renderItems();
@@ -143,7 +192,7 @@ public class AddEditEntryFragment extends DialogFragment {
                 itemView = getLayoutInflater().inflate(R.layout.item_photo, itemsContainer, false);
                 ImageView imageView = itemView.findViewById(R.id.photo_image);
                 // Placeholder logic for photo
-                ImageButton btnDelete = itemView.findViewById(R.id.btn_delete_photo);
+                View btnDelete = itemView.findViewById(R.id.btn_delete_photo);
                 btnDelete.setOnClickListener(v -> {
                     itemsList.remove(index);
                     renderItems();
@@ -168,12 +217,16 @@ public class AddEditEntryFragment extends DialogFragment {
             dbHelper.updateEntryTitle(entryId, title);
             dbHelper.deleteAllNotesForEntry(entryId);
             dbHelper.deleteAllPhotosForEntry(entryId);
+            dbHelper.deleteAllPinsForEntry(entryId);
         }
 
         for (int i = 0; i < itemsList.size(); i++) {
             EntryItem item = itemsList.get(i);
             if (item.isNote()) {
                 dbHelper.insertNote(entryId, ((Note) item).getText(), i);
+            } else if (item.isMapPin()) {
+                MapPin pin = (MapPin) item;
+                dbHelper.insertMapPin(entryId, pin.getLabel(), pin.getLatitude(), pin.getLongitude(), i);
             } else {
                 dbHelper.insertPhoto(entryId, ((Photo) item).getPath(), i);
             }

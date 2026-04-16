@@ -171,6 +171,16 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
+            // Sprawdź czy fraza występuje w etykietach pinezek
+            if (!matchesSearch && !searchQuery.isEmpty() && entry.getMapPins() != null) {
+                for (com.traveltracker.database.MapPin pin : entry.getMapPins()) {
+                    if (pin.getLabel() != null && pin.getLabel().toLowerCase().contains(searchQuery)) {
+                        matchesSearch = true;
+                        break;
+                    }
+                }
+            }
+
             if (matchesSearch) {
                 filteredEntries.add(entry);
             }

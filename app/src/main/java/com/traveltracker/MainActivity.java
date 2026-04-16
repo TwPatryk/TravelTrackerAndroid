@@ -161,6 +161,16 @@ public class MainActivity extends AppCompatActivity {
             boolean matchesSearch = searchQuery.isEmpty() ||
                     entry.getTitle().toLowerCase().contains(searchQuery);
 
+            // Sprawdź czy fraza występuje w notatkach
+            if (!matchesSearch && !searchQuery.isEmpty() && entry.getNotes() != null) {
+                for (com.traveltracker.database.Note note : entry.getNotes()) {
+                    if (note.getText() != null && note.getText().toLowerCase().contains(searchQuery)) {
+                        matchesSearch = true;
+                        break;
+                    }
+                }
+            }
+
             if (matchesSearch) {
                 filteredEntries.add(entry);
             }

@@ -20,6 +20,8 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.navigation.NavigationView;
 import com.traveltracker.adapter.EntryAdapter;
@@ -48,6 +50,8 @@ public class MainActivity extends AppCompatActivity {
     // Filtry
     private EditText searchEditText;
     private LinearLayout filterContainer;
+    private ChipGroup tagChipGroup;
+    private List<String> selectedTags = new ArrayList<>();
 
     private final ActivityResultLauncher<String> exportLauncher =
             registerForActivityResult(new ActivityResultContracts.CreateDocument("application/octet-stream"), uri -> {
@@ -82,6 +86,7 @@ public class MainActivity extends AppCompatActivity {
     private void initViews() {
         drawerLayout = findViewById(R.id.drawer_layout);
         recyclerView = findViewById(R.id.entries_recycler_view);
+        tagChipGroup = findViewById(R.id.tag_chip_group);
         FloatingActionButton fab = findViewById(R.id.fab_add_entry);
 
         fab.setOnClickListener(v -> openAddEditFragment(null));
@@ -177,8 +182,31 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadEntries() {
         allEntries = dbHelper.getAllEntries();
+        updateTagChips();
         applyFilters();
         updateDrawerMenu();
+    }
+
+    private void updateTagChips() {
+        List<String> allTags = dbHelper.getAllUniqueTags();
+        tagChipGroup.removeAllViews();
+        for (String tag : allTags) {
+            Chip chip = new Chip(this);
+            chip.setText(tag);
+            chip.setCheckable(true);
+            chip.setChecked(selectedTags.contains(tag));
+            
+            chip.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                if (isChecked) {
+                    if (!selectedTags.contains(tag)) selectedTags.add(tag);
+                } else {
+                    selectedTags.remove(tag);
+                }
+                applyFilters();
+            });
+            
+            tagChipGroup.addView(chip);
+        }
     }
 
     private void updateDrawerMenu() {
@@ -236,8 +264,35 @@ public class MainActivity extends AppCompatActivity {
         filteredEntries.clear();
 
         for (TravelEntry entry : allEntries) {
+            // Sprawdź czy wpis posiada WSZYSTKIE wybrane tagi (AND)
+            boolean matchesTags = true;
+            if (!selectedTags.isEmpty()) {
+                if (entry.getTags() == null) {
+                    matchesTags = false;
+                } else {
+                    for (String selected : selectedTags) {
+                        if (!entry.getTags().contains(selected)) {
+                            matchesTags = false;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!matchesTags) continue;
+
             boolean matchesSearch = searchQuery.isEmpty() ||
                     entry.getTitle().toLowerCase().contains(searchQuery);
+
+            // Sprawdź czy fraza występuje w tagach
+            if (!matchesSearch && !searchQuery.isEmpty() && entry.getTags() != null) {
+                for (String tag : entry.getTags()) {
+                    if (tag.toLowerCase().contains(searchQuery)) {
+                        matchesSearch = true;
+                        break;
+                    }
+                }
+            }
 
             // Sprawdź czy fraza występuje w notatkach
             if (!matchesSearch && !searchQuery.isEmpty() && entry.getNotes() != null) {
@@ -269,6 +324,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void clearFilters() {
         searchEditText.setText("");
+        selectedTags.clear();
         applyFilters();
     }
 

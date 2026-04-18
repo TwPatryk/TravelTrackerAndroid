@@ -62,6 +62,14 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
 
         holder.infoTextView.setText("📝 " + notesCount + " · 📷 " + photosCount + " · 📍 " + pinsCount);
 
+        // Wyświetl tagi
+        if (entry.getTags() != null && !entry.getTags().isEmpty()) {
+            holder.tagsTextView.setVisibility(View.VISIBLE);
+            holder.tagsTextView.setText("🏷️ " + String.join(", ", entry.getTags()));
+        } else {
+            holder.tagsTextView.setVisibility(View.GONE);
+        }
+
         holder.itemView.setOnClickListener(v -> listener.onEntryClick(entry));
         holder.itemView.setOnLongClickListener(v -> {
             listener.onEntryLongClick(entry);
@@ -84,12 +92,14 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
     static class ViewHolder extends RecyclerView.ViewHolder {
         TextView titleTextView;
         TextView infoTextView;
+        TextView tagsTextView;
         ImageView dragHandle;
 
         ViewHolder(View itemView) {
             super(itemView);
             titleTextView = itemView.findViewById(R.id.entry_title);
             infoTextView = itemView.findViewById(R.id.entry_info);
+            tagsTextView = itemView.findViewById(R.id.entry_tags);
             dragHandle = itemView.findViewById(R.id.iv_drag_handle);
         }
     }

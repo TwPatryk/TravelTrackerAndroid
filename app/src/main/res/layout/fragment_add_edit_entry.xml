@@ -22,6 +22,17 @@
             android:padding="12dp"
             android:background="@android:drawable/editbox_background"/>
 
+        <!-- Tagi -->
+        <EditText
+            android:id="@+id/entry_tags_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Tags (comma separated, e.g. nature, summer, trip)"
+            android:textSize="14sp"
+            android:padding="12dp"
+            android:layout_marginTop="8dp"
+            android:background="@android:drawable/editbox_background"/>
+
         <!-- Zawartość (Notatki i Zdjęcia) -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/items_recycler_view"

@@ -9,6 +9,7 @@ public class TravelEntry {
     private List<Note> notes;
     private List<Photo> photos;
     private List<MapPin> mapPins;
+    private List<String> tags;
 
     // Getters i Setters
     public long getId() { return id; }
@@ -28,4 +29,7 @@ public class TravelEntry {
 
     public List<MapPin> getMapPins() { return mapPins; }
     public void setMapPins(List<MapPin> pins) { this.mapPins = pins; }
+
+    public List<String> getTags() { return tags; }
+    public void setTags(List<String> tags) { this.tags = tags; }
 }

@@ -64,7 +64,7 @@ public class AddEditEntryFragment extends DialogFragment {
     private DatabaseHelper dbHelper;
     private OnEntrySavedListener onEntrySavedListener;
 
-    private EditText titleInput;
+    private EditText titleInput, tagsInput;
     private RecyclerView itemsRecyclerView;
     private ItemsAdapter itemsAdapter;
     private ItemTouchHelper itemTouchHelper;
@@ -124,6 +124,7 @@ public class AddEditEntryFragment extends DialogFragment {
         View view = inflater.inflate(R.layout.fragment_add_edit_entry, container, false);
 
         titleInput = view.findViewById(R.id.entry_title_input);
+        tagsInput = view.findViewById(R.id.entry_tags_input);
         itemsRecyclerView = view.findViewById(R.id.items_recycler_view);
 
         itemsRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -162,6 +163,9 @@ public class AddEditEntryFragment extends DialogFragment {
 
         if (currentEntry != null) {
             titleInput.setText(currentEntry.getTitle());
+            if (currentEntry.getTags() != null && !currentEntry.getTags().isEmpty()) {
+                tagsInput.setText(String.join(", ", currentEntry.getTags()));
+            }
             itemsList.clear();
             if (currentEntry.getNotes() != null) itemsList.addAll(currentEntry.getNotes());
             if (currentEntry.getPhotos() != null) itemsList.addAll(currentEntry.getPhotos());
@@ -334,6 +338,7 @@ public class AddEditEntryFragment extends DialogFragment {
 
     private void saveEntry() {
         String title = titleInput.getText().toString().trim();
+        String tagsText = tagsInput.getText().toString().trim();
         if (title.isEmpty()) {
             Toast.makeText(getContext(), "Please enter a title", Toast.LENGTH_SHORT).show();
             return;
@@ -348,6 +353,18 @@ public class AddEditEntryFragment extends DialogFragment {
             dbHelper.deleteAllNotesForEntry(entryId);
             dbHelper.deleteAllPhotosForEntry(entryId);
             dbHelper.deleteAllPinsForEntry(entryId);
+            dbHelper.deleteAllTagsForEntry(entryId);
+        }
+
+        // Zapisz tagi
+        if (!tagsText.isEmpty()) {
+            String[] tags = tagsText.split(",");
+            for (String tag : tags) {
+                String trimmedTag = tag.trim();
+                if (!trimmedTag.isEmpty()) {
+                    dbHelper.insertTag(entryId, trimmedTag);
+                }
+            }
         }
 
         for (int i = 0; i < itemsList.size(); i++) {

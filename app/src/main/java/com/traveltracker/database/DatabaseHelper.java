@@ -12,7 +12,7 @@ import java.util.List;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "travel_tracker.db";
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = 4;
 
     // Tabela główna
     private static final String TABLE_ENTRIES = "entries";
@@ -20,6 +20,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_TITLE = "title";
     private static final String COLUMN_CREATED_AT = "created_at";
     private static final String COLUMN_ENTRY_ORDER = "entry_order";
+
+    // Tabela tagów
+    private static final String TABLE_TAGS = "tags";
+    private static final String COLUMN_TAG_ID = "id";
+    private static final String COLUMN_TAG_NAME = "tag_name";
 
     // Tabela notatek
     private static final String TABLE_NOTES = "notes";
@@ -84,10 +89,19 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_PIN_ORDER + " INTEGER, " +
                 "FOREIGN KEY(" + COLUMN_ENTRY_ID + ") REFERENCES " + TABLE_ENTRIES + "(" + COLUMN_ID + ") ON DELETE CASCADE)";
         db.execSQL(createPinsTable);
+
+        // Tabela tagów
+        String createTagsTable = "CREATE TABLE " + TABLE_TAGS + " (" +
+                COLUMN_TAG_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                COLUMN_ENTRY_ID + " INTEGER, " +
+                COLUMN_TAG_NAME + " TEXT, " +
+                "FOREIGN KEY(" + COLUMN_ENTRY_ID + ") REFERENCES " + TABLE_ENTRIES + "(" + COLUMN_ID + ") ON DELETE CASCADE)";
+        db.execSQL(createTagsTable);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_TAGS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_NOTES);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_PHOTOS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_PINS);
@@ -129,6 +143,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 // Pobierz pinezki dla tego wpisu
                 entry.setMapPins(getMapPinsForEntry(entry.getId()));
 
+                // Pobierz tagi dla tego wpisu
+                entry.setTags(getTagsForEntry(entry.getId()));
+
                 entries.add(entry);
             } while (cursor.moveToNext());
         }
@@ -152,6 +169,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             entry.setNotes(getNotesForEntry(id));
             entry.setPhotos(getPhotosForEntry(id));
             entry.setMapPins(getMapPinsForEntry(id));
+            entry.setTags(getTagsForEntry(id));
         }
         cursor.close();
         db.close();
@@ -346,6 +364,53 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public void deleteAllPinsForEntry(long entryId) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_PINS, COLUMN_ENTRY_ID + " = ?", new String[]{String.valueOf(entryId)});
+        db.close();
+    }
+
+    // ==================== METODY DLA TAGÓW ====================
+
+    public void insertTag(long entryId, String tagName) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_ENTRY_ID, entryId);
+        values.put(COLUMN_TAG_NAME, tagName);
+        db.insert(TABLE_TAGS, null, values);
+        db.close();
+    }
+
+    public List<String> getTagsForEntry(long entryId) {
+        List<String> tags = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        String query = "SELECT " + COLUMN_TAG_NAME + " FROM " + TABLE_TAGS + " WHERE " + COLUMN_ENTRY_ID + " = ?";
+        Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(entryId)});
+        if (cursor.moveToFirst()) {
+            do {
+                tags.add(cursor.getString(0));
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        db.close();
+        return tags;
+    }
+
+    public List<String> getAllUniqueTags() {
+        List<String> tags = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        String query = "SELECT DISTINCT " + COLUMN_TAG_NAME + " FROM " + TABLE_TAGS + " ORDER BY " + COLUMN_TAG_NAME + " ASC";
+        Cursor cursor = db.rawQuery(query, null);
+        if (cursor.moveToFirst()) {
+            do {
+                tags.add(cursor.getString(0));
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        db.close();
+        return tags;
+    }
+
+    public void deleteAllTagsForEntry(long entryId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_TAGS, COLUMN_ENTRY_ID + " = ?", new String[]{String.valueOf(entryId)});
         db.close();
     }
 }

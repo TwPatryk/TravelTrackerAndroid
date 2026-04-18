@@ -1,6 +1,8 @@
 package com.traveltracker;
 
+import android.content.Context;
 import android.os.Bundle;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -132,8 +134,17 @@ public class MainActivity extends AppCompatActivity {
         filterButton.setOnClickListener(v -> {
             if (filterContainer.getVisibility() == android.view.View.GONE) {
                 filterContainer.setVisibility(android.view.View.VISIBLE);
+                searchEditText.requestFocus();
+                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) {
+                    imm.showSoftInput(searchEditText, InputMethodManager.SHOW_IMPLICIT);
+                }
             } else {
                 filterContainer.setVisibility(android.view.View.GONE);
+                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) {
+                    imm.hideSoftInputFromWindow(searchEditText.getWindowToken(), 0);
+                }
             }
         });
 

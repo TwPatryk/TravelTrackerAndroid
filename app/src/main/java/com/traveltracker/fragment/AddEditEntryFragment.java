@@ -1,6 +1,11 @@
 package com.traveltracker.fragment;
 
+import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
@@ -16,8 +21,11 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 
 import com.traveltracker.R;
@@ -46,6 +54,17 @@ public class AddEditEntryFragment extends DialogFragment {
     private LinearLayout itemsContainer;
 
     private List<EntryItem> itemsList = new ArrayList<>();
+
+    private final ActivityResultLauncher<String[]> locationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                Boolean fineLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false);
+                Boolean coarseLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false);
+                if (fineLocationGranted != null && fineLocationGranted || coarseLocationGranted != null && coarseLocationGranted) {
+                    addNewPinWithCurrentLocation();
+                } else {
+                    Toast.makeText(getContext(), "Location permission denied", Toast.LENGTH_SHORT).show();
+                }
+            });
 
     public interface OnEntrySavedListener {
         void onEntrySaved();
@@ -118,20 +137,57 @@ public class AddEditEntryFragment extends DialogFragment {
         });
 
         btnAddPin.setOnClickListener(v -> {
-            MapPin newPin = new MapPin();
-            newPin.setLabel("");
-            // Default coords for testing
-            newPin.setLatitude(52.2297); 
-            newPin.setLongitude(21.0122);
-            newPin.setOrder(itemsList.size());
-            itemsList.add(newPin);
-            renderItems();
+            checkLocationPermissionAndAddPin();
         });
 
         btnSave.setOnClickListener(v -> saveEntry());
         btnCancel.setOnClickListener(v -> dismiss());
 
         return view;
+    }
+
+    private void checkLocationPermissionAndAddPin() {
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            addNewPinWithCurrentLocation();
+        } else {
+            locationPermissionLauncher.launch(new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+            });
+        }
+    }
+
+    private void addNewPinWithCurrentLocation() {
+        LocationManager locationManager = (LocationManager) requireContext().getSystemService(Context.LOCATION_SERVICE);
+        if (locationManager != null) {
+            try {
+                Location lastKnownLocation = null;
+                if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                }
+                if (lastKnownLocation == null) {
+                    lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                }
+
+                MapPin newPin = new MapPin();
+                newPin.setLabel("");
+                if (lastKnownLocation != null) {
+                    newPin.setLatitude(lastKnownLocation.getLatitude());
+                    newPin.setLongitude(lastKnownLocation.getLongitude());
+                } else {
+                    // Fallback if no location found
+                    newPin.setLatitude(52.2297);
+                    newPin.setLongitude(21.0122);
+                    Toast.makeText(getContext(), "Could not get current location, using default", Toast.LENGTH_SHORT).show();
+                }
+                newPin.setOrder(itemsList.size());
+                itemsList.add(newPin);
+                renderItems();
+            } catch (SecurityException e) {
+                Toast.makeText(getContext(), "Permission error", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     private void renderItems() {

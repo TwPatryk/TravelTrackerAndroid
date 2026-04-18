@@ -1,12 +1,18 @@
 package com.traveltracker;
 
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.Toast;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -19,6 +25,12 @@ import com.traveltracker.database.DatabaseHelper;
 import com.traveltracker.database.TravelEntry;
 import com.traveltracker.fragment.AddEditEntryFragment;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,6 +46,20 @@ public class MainActivity extends AppCompatActivity {
     // Filtry
     private EditText searchEditText;
     private LinearLayout filterContainer;
+
+    private final ActivityResultLauncher<String> exportLauncher =
+            registerForActivityResult(new ActivityResultContracts.CreateDocument("application/octet-stream"), uri -> {
+                if (uri != null) {
+                    exportDatabase(uri);
+                }
+            });
+
+    private final ActivityResultLauncher<String[]> importLauncher =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+                if (uri != null) {
+                    importDatabase(uri);
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,11 +83,17 @@ public class MainActivity extends AppCompatActivity {
         FloatingActionButton fab = findViewById(R.id.fab_add_entry);
 
         fab.setOnClickListener(v -> openAddEditFragment(null));
+
+        Button btnExport = findViewById(R.id.btn_export);
+        Button btnImport = findViewById(R.id.btn_import);
+
+        btnExport.setOnClickListener(v -> exportLauncher.launch("travel_tracker_backup.db"));
+        btnImport.setOnClickListener(v -> importLauncher.launch(new String[]{"application/octet-stream", "*/*"}));
     }
 
     private void setupDrawer() {
         ImageButton menuButton = findViewById(R.id.menu_button);
-        menuButton.setOnClickListener(v -> drawerLayout.openDrawer(findViewById(R.id.nav_view)));
+        menuButton.setOnClickListener(v -> drawerLayout.openDrawer(findViewById(R.id.drawer_content)));
 
         NavigationView navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(item -> {
@@ -212,5 +244,45 @@ public class MainActivity extends AppCompatActivity {
             drawerLayout.closeDrawers();
         });
         fragment.show(getSupportFragmentManager(), "AddEditEntryFragment");
+    }
+
+    private void exportDatabase(Uri uri) {
+        File dbFile = getDatabasePath("travel_tracker.db");
+        try (InputStream in = new FileInputStream(dbFile);
+             OutputStream out = getContentResolver().openOutputStream(uri)) {
+            byte[] buf = new byte[1024];
+            int len;
+            while ((len = in.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
+            Toast.makeText(this, "Database exported successfully", Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Export failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void importDatabase(Uri uri) {
+        File dbFile = getDatabasePath("travel_tracker.db");
+        
+        // Close DB before import
+        dbHelper.close();
+
+        try (InputStream in = getContentResolver().openInputStream(uri);
+             OutputStream out = new FileOutputStream(dbFile)) {
+            byte[] buf = new byte[1024];
+            int len;
+            while ((len = in.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
+            Toast.makeText(this, "Database imported successfully. Restarting...", Toast.LENGTH_SHORT).show();
+            
+            // Reload data
+            dbHelper = new DatabaseHelper(this);
+            loadEntries();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Import failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 }

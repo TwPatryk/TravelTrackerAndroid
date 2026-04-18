@@ -1,6 +1,7 @@
 package com.traveltracker.fragment;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
@@ -15,6 +16,7 @@ import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
@@ -22,7 +24,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -32,6 +33,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.traveltracker.R;
@@ -61,7 +65,9 @@ public class AddEditEntryFragment extends DialogFragment {
     private OnEntrySavedListener onEntrySavedListener;
 
     private EditText titleInput;
-    private LinearLayout itemsContainer;
+    private RecyclerView itemsRecyclerView;
+    private ItemsAdapter itemsAdapter;
+    private ItemTouchHelper itemTouchHelper;
 
     private List<EntryItem> itemsList = new ArrayList<>();
 
@@ -118,7 +124,35 @@ public class AddEditEntryFragment extends DialogFragment {
         View view = inflater.inflate(R.layout.fragment_add_edit_entry, container, false);
 
         titleInput = view.findViewById(R.id.entry_title_input);
-        itemsContainer = view.findViewById(R.id.items_container);
+        itemsRecyclerView = view.findViewById(R.id.items_recycler_view);
+
+        itemsRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        itemsAdapter = new ItemsAdapter();
+        itemsRecyclerView.setAdapter(itemsAdapter);
+
+        ItemTouchHelper.Callback callback = new ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
+                int fromPos = viewHolder.getAdapterPosition();
+                int toPos = target.getAdapterPosition();
+                Collections.swap(itemsList, fromPos, toPos);
+                itemsAdapter.notifyItemMoved(fromPos, toPos);
+                return true;
+            }
+
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                // Not used
+            }
+
+            @Override
+            public void clearView(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
+                super.clearView(recyclerView, viewHolder);
+                itemsAdapter.notifyDataSetChanged(); // Ensure items are properly updated
+            }
+        };
+        itemTouchHelper = new ItemTouchHelper(callback);
+        itemTouchHelper.attachToRecyclerView(itemsRecyclerView);
 
         Button btnAddNote = view.findViewById(R.id.btn_add_note);
         Button btnAddPhoto = view.findViewById(R.id.btn_add_photo);
@@ -134,7 +168,7 @@ public class AddEditEntryFragment extends DialogFragment {
             if (currentEntry.getMapPins() != null) itemsList.addAll(currentEntry.getMapPins());
             
             Collections.sort(itemsList, Comparator.comparingInt(EntryItem::getOrder));
-            renderItems(false);
+            itemsAdapter.notifyDataSetChanged();
         }
 
         btnAddNote.setOnClickListener(v -> {
@@ -142,7 +176,7 @@ public class AddEditEntryFragment extends DialogFragment {
             newNote.setText("");
             newNote.setOrder(itemsList.size());
             itemsList.add(newNote);
-            renderItems(true); // Pass true to focus on the new note
+            itemsAdapter.notifyItemInserted(itemsList.size() - 1);
         });
 
         btnAddPhoto.setOnClickListener(v -> {
@@ -200,7 +234,7 @@ public class AddEditEntryFragment extends DialogFragment {
                         newPin.setLongitude(lon);
                         newPin.setOrder(itemsList.size());
                         itemsList.add(newPin);
-                        renderItems(false);
+                        itemsAdapter.notifyItemInserted(itemsList.size() - 1);
                     } catch (NumberFormatException e) {
                         Toast.makeText(getContext(), "Invalid coordinates format", Toast.LENGTH_SHORT).show();
                     }
@@ -246,7 +280,7 @@ public class AddEditEntryFragment extends DialogFragment {
                 }
                 newPin.setOrder(itemsList.size());
                 itemsList.add(newPin);
-                renderItems(false);
+                itemsAdapter.notifyItemInserted(itemsList.size() - 1);
             } catch (SecurityException e) {
                 Toast.makeText(getContext(), "Permission error", Toast.LENGTH_SHORT).show();
             }
@@ -260,7 +294,6 @@ public class AddEditEntryFragment extends DialogFragment {
             if (inputStream != null) inputStream.close();
 
             if (bitmap != null) {
-                // Skalowanie obrazu (maksymalnie 1920px na dłuższym boku)
                 int maxWidth = 1920;
                 int maxHeight = 1920;
                 float ratio = Math.min((float) maxWidth / bitmap.getWidth(), (float) maxHeight / bitmap.getHeight());
@@ -273,8 +306,6 @@ public class AddEditEntryFragment extends DialogFragment {
                 String fileName = "IMG_" + System.currentTimeMillis() + ".jpg";
                 File file = new File(requireContext().getFilesDir(), fileName);
                 FileOutputStream out = new FileOutputStream(file);
-                
-                // Kompresja do JPEG z jakością 80%
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out);
                 out.flush();
                 out.close();
@@ -283,7 +314,7 @@ public class AddEditEntryFragment extends DialogFragment {
                 newPhoto.setPath(file.getAbsolutePath());
                 newPhoto.setOrder(itemsList.size());
                 itemsList.add(newPhoto);
-                renderItems(false);
+                itemsAdapter.notifyItemInserted(itemsList.size() - 1);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -291,104 +322,12 @@ public class AddEditEntryFragment extends DialogFragment {
         }
     }
 
-    private void renderItems(boolean focusLastNote) {
-        itemsContainer.removeAllViews();
-        for (int i = 0; i < itemsList.size(); i++) {
-            EntryItem item = itemsList.get(i);
-            final int index = i;
-            
-            View itemView;
-            if (item.isNote()) {
-                itemView = getLayoutInflater().inflate(R.layout.item_note, itemsContainer, false);
-                EditText noteInput = itemView.findViewById(R.id.note_text);
-                Note note = (Note) item;
-                noteInput.setText(note.getText());
-
-                if (focusLastNote && i == itemsList.size() - 1) {
-                    noteInput.requestFocus();
-                    noteInput.postDelayed(() -> {
-                        InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-                        if (imm != null) {
-                            imm.showSoftInput(noteInput, InputMethodManager.SHOW_IMPLICIT);
-                        }
-                    }, 100);
-                }
-
-                noteInput.addTextChangedListener(new TextWatcher() {
-                    @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-                    @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                        note.setText(s.toString());
-                    }
-                    @Override public void afterTextChanged(Editable s) {}
-                });
-                View btnDelete = itemView.findViewById(R.id.btn_delete_note);
-                btnDelete.setOnClickListener(v -> {
-                    itemsList.remove(index);
-                    renderItems(false);
-                });
-            } else if (item.isMapPin()) {
-                itemView = getLayoutInflater().inflate(R.layout.item_map_pin, itemsContainer, false);
-                EditText labelInput = itemView.findViewById(R.id.pin_label);
-                TextView coordsText = itemView.findViewById(R.id.pin_coords);
-                MapPin pin = (MapPin) item;
-                
-                labelInput.setText(pin.getLabel());
-                coordsText.setText(String.format(Locale.getDefault(), "%.4f, %.4f", pin.getLatitude(), pin.getLongitude()));
-                
-                labelInput.addTextChangedListener(new TextWatcher() {
-                    @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-                    @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                        pin.setLabel(s.toString());
-                    }
-                    @Override public void afterTextChanged(Editable s) {}
-                });
-
-                View btnOpenMap = itemView.findViewById(R.id.btn_open_map);
-                btnOpenMap.setOnClickListener(v -> {
-                    String uri = String.format(Locale.ENGLISH, "geo:%f,%f?q=%f,%f(%s)", 
-                        pin.getLatitude(), pin.getLongitude(), pin.getLatitude(), pin.getLongitude(), pin.getLabel());
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
-                    startActivity(intent);
-                });
-
-                View btnDelete = itemView.findViewById(R.id.btn_delete_pin);
-                btnDelete.setOnClickListener(v -> {
-                    itemsList.remove(index);
-                    renderItems(false);
-                });
-            } else {
-                itemView = getLayoutInflater().inflate(R.layout.item_photo, itemsContainer, false);
-                ImageView imageView = itemView.findViewById(R.id.photo_image);
-                Photo photo = (Photo) item;
-
-                Glide.with(this)
-                        .load(photo.getPath())
-                        .placeholder(android.R.drawable.ic_menu_gallery)
-                        .into(imageView);
-                
-                imageView.setOnClickListener(v -> showFullScreenImage(photo.getPath()));
-
-                View btnDelete = itemView.findViewById(R.id.btn_delete_photo);
-                btnDelete.setOnClickListener(v -> {
-                    itemsList.remove(index);
-                    renderItems(false);
-                });
-            }
-            itemsContainer.addView(itemView);
-        }
-    }
-
     private void showFullScreenImage(String path) {
         Dialog dialog = new Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         dialog.setContentView(R.layout.dialog_full_screen_image);
-
         ImageView fullScreenImage = dialog.findViewById(R.id.full_screen_image);
         ImageButton btnClose = dialog.findViewById(R.id.btn_close_full_screen);
-
-        Glide.with(this)
-                .load(path)
-                .into(fullScreenImage);
-
+        Glide.with(this).load(path).into(fullScreenImage);
         btnClose.setOnClickListener(v -> dialog.dismiss());
         dialog.show();
     }
@@ -427,5 +366,134 @@ public class AddEditEntryFragment extends DialogFragment {
             onEntrySavedListener.onEntrySaved();
         }
         dismiss();
+    }
+
+    private class ItemsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+        private static final int TYPE_NOTE = 0;
+        private static final int TYPE_PHOTO = 1;
+        private static final int TYPE_PIN = 2;
+
+        @Override
+        public int getItemViewType(int position) {
+            EntryItem item = itemsList.get(position);
+            if (item.isNote()) return TYPE_NOTE;
+            if (item.isMapPin()) return TYPE_PIN;
+            return TYPE_PHOTO;
+        }
+
+        @NonNull
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            LayoutInflater inflater = LayoutInflater.from(parent.getContext());
+            if (viewType == TYPE_NOTE) {
+                return new NoteViewHolder(inflater.inflate(R.layout.item_note, parent, false));
+            } else if (viewType == TYPE_PIN) {
+                return new PinViewHolder(inflater.inflate(R.layout.item_map_pin, parent, false));
+            } else {
+                return new PhotoViewHolder(inflater.inflate(R.layout.item_photo, parent, false));
+            }
+        }
+
+        @SuppressLint("ClickableViewAccessibility")
+        @Override
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            EntryItem item = itemsList.get(position);
+            View dragHandle = holder.itemView.findViewById(R.id.iv_drag_handle);
+            dragHandle.setOnTouchListener((v, event) -> {
+                if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                    itemTouchHelper.startDrag(holder);
+                }
+                return false;
+            });
+
+            if (holder instanceof NoteViewHolder) {
+                Note note = (Note) item;
+                NoteViewHolder h = (NoteViewHolder) holder;
+                h.noteInput.setText(note.getText());
+                h.noteInput.addTextChangedListener(new TextWatcher() {
+                    @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                    @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                        note.setText(s.toString());
+                    }
+                    @Override public void afterTextChanged(Editable s) {}
+                });
+                h.btnDelete.setOnClickListener(v -> {
+                    int pos = holder.getAdapterPosition();
+                    itemsList.remove(pos);
+                    notifyItemRemoved(pos);
+                });
+            } else if (holder instanceof PinViewHolder) {
+                MapPin pin = (MapPin) item;
+                PinViewHolder h = (PinViewHolder) holder;
+                h.labelInput.setText(pin.getLabel());
+                h.coordsText.setText(String.format(Locale.getDefault(), "%.4f, %.4f", pin.getLatitude(), pin.getLongitude()));
+                h.labelInput.addTextChangedListener(new TextWatcher() {
+                    @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                    @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                        pin.setLabel(s.toString());
+                    }
+                    @Override public void afterTextChanged(Editable s) {}
+                });
+                h.btnOpenMap.setOnClickListener(v -> {
+                    String uri = String.format(Locale.ENGLISH, "geo:%f,%f?q=%f,%f(%s)", 
+                        pin.getLatitude(), pin.getLongitude(), pin.getLatitude(), pin.getLongitude(), pin.getLabel());
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(uri)));
+                });
+                h.btnDelete.setOnClickListener(v -> {
+                    int pos = holder.getAdapterPosition();
+                    itemsList.remove(pos);
+                    notifyItemRemoved(pos);
+                });
+            } else if (holder instanceof PhotoViewHolder) {
+                Photo photo = (Photo) item;
+                PhotoViewHolder h = (PhotoViewHolder) holder;
+                Glide.with(AddEditEntryFragment.this).load(photo.getPath())
+                        .placeholder(android.R.drawable.ic_menu_gallery).into(h.imageView);
+                h.imageView.setOnClickListener(v -> showFullScreenImage(photo.getPath()));
+                h.btnDelete.setOnClickListener(v -> {
+                    int pos = holder.getAdapterPosition();
+                    itemsList.remove(pos);
+                    notifyItemRemoved(pos);
+                });
+            }
+        }
+
+        @Override
+        public int getItemCount() {
+            return itemsList.size();
+        }
+
+        class NoteViewHolder extends RecyclerView.ViewHolder {
+            EditText noteInput;
+            View btnDelete;
+            NoteViewHolder(View v) {
+                super(v);
+                noteInput = v.findViewById(R.id.note_text);
+                btnDelete = v.findViewById(R.id.btn_delete_note);
+            }
+        }
+
+        class PinViewHolder extends RecyclerView.ViewHolder {
+            EditText labelInput;
+            TextView coordsText;
+            View btnOpenMap, btnDelete;
+            PinViewHolder(View v) {
+                super(v);
+                labelInput = v.findViewById(R.id.pin_label);
+                coordsText = v.findViewById(R.id.pin_coords);
+                btnOpenMap = v.findViewById(R.id.btn_open_map);
+                btnDelete = v.findViewById(R.id.btn_delete_pin);
+            }
+        }
+
+        class PhotoViewHolder extends RecyclerView.ViewHolder {
+            ImageView imageView;
+            View btnDelete;
+            PhotoViewHolder(View v) {
+                super(v);
+                imageView = v.findViewById(R.id.photo_image);
+                btnDelete = v.findViewById(R.id.btn_delete_photo);
+            }
+        }
     }
 }

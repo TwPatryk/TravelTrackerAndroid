@@ -47,6 +47,9 @@ public class MainActivity extends AppCompatActivity {
     private List<TravelEntry> allEntries;
     private List<TravelEntry> filteredEntries;
 
+    private androidx.appcompat.widget.Toolbar toolbar;
+    private FloatingActionButton fab;
+
     // Filtry
     private EditText searchEditText;
     private LinearLayout filterContainer;
@@ -163,17 +166,136 @@ public class MainActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.entries_recycler_view);
         tagChipGroup = findViewById(R.id.tag_chip_group);
         backgroundImageView = findViewById(R.id.main_background_image);
-        FloatingActionButton fab = findViewById(R.id.fab_add_entry);
+        fab = findViewById(R.id.fab_add_entry);
+        toolbar = findViewById(R.id.main_toolbar);
 
         fab.setOnClickListener(v -> openAddEditFragment(null));
 
         Button btnExport = findViewById(R.id.btn_export);
         Button btnImport = findViewById(R.id.btn_import);
         Button btnSetBg = findViewById(R.id.btn_set_background);
+        Button btnChangeTheme = findViewById(R.id.btn_change_theme);
 
         btnExport.setOnClickListener(v -> exportLauncher.launch("travel_tracker_backup.db"));
         btnImport.setOnClickListener(v -> importLauncher.launch(new String[]{"application/octet-stream", "*/*"}));
         btnSetBg.setOnClickListener(v -> showBackgroundSettingsDialog());
+        btnChangeTheme.setOnClickListener(v -> showThemeChooserDialog());
+
+        applyThemeSettings();
+    }
+
+    private void showThemeChooserDialog() {
+        String[] colorNames = {
+                "Orange (Default)", "Amber Glow", "Sunflower Yellow", "Vibrant Lime",
+                "Light Green", "Forest Green", "Mint Teal", "Cyan Dream",
+                "Sky Blue", "Electric Blue", "Indigo Night", "Deep Purple",
+                "Vivid Violet", "Hot Pink", "Energetic Red", "Deep Orange", "Soft Coral",
+                "Custom..."
+        };
+
+        int[] colors = {
+                0xFFFF3D00, 0xFFFFC107, 0xFFFFEB3B, 0xFFCDDC39,
+                0xFF8BC34A, 0xFF4CAF50, 0xFF009688, 0xFF00BCD4,
+                0xFF03A9F4, 0xFF2196F3, 0xFF3F51B5, 0xFF673AB7,
+                0xFF9C27B0, 0xFFE91E63, 0xFFF44336, 0xFFFF5722, 0xFFFF7F50
+        };
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Choose Theme Color")
+                .setItems(colorNames, (dialog, which) -> {
+                    if (which == colorNames.length - 1) {
+                        showCustomColorPickerDialog();
+                    } else {
+                        int selectedColor = colors[which];
+                        dbHelper.setGlobalSetting("theme_color", String.format("#%08X", selectedColor));
+                        applyThemeSettings();
+                    }
+                })
+                .show();
+    }
+
+    private void showCustomColorPickerDialog() {
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding, padding, padding);
+
+        final android.view.View colorPreview = new android.view.View(this);
+        String currentColorHex = dbHelper.getGlobalSetting("theme_color");
+        int currentColor = (currentColorHex != null) ? android.graphics.Color.parseColor(currentColorHex) : 0xFFFF3D00;
+        
+        android.widget.LinearLayout.LayoutParams previewParams = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT, (int) (60 * getResources().getDisplayMetrics().density));
+        previewParams.setMargins(0, 0, 0, padding);
+        colorPreview.setLayoutParams(previewParams);
+        colorPreview.setBackgroundColor(currentColor);
+        layout.addView(colorPreview);
+
+        final android.widget.SeekBar seekR = createColorSeekBar(android.graphics.Color.red(currentColor));
+        final android.widget.SeekBar seekG = createColorSeekBar(android.graphics.Color.green(currentColor));
+        final android.widget.SeekBar seekB = createColorSeekBar(android.graphics.Color.blue(currentColor));
+
+        layout.addView(createLabel("Red"));
+        layout.addView(seekR);
+        layout.addView(createLabel("Green"));
+        layout.addView(seekG);
+        layout.addView(createLabel("Blue"));
+        layout.addView(seekB);
+
+        android.widget.SeekBar.OnSeekBarChangeListener listener = new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                int color = android.graphics.Color.rgb(seekR.getProgress(), seekG.getProgress(), seekB.getProgress());
+                colorPreview.setBackgroundColor(color);
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+        };
+
+        seekR.setOnSeekBarChangeListener(listener);
+        seekG.setOnSeekBarChangeListener(listener);
+        seekB.setOnSeekBarChangeListener(listener);
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Compose Custom Color")
+                .setView(layout)
+                .setPositiveButton("Apply", (dialog, which) -> {
+                    int color = android.graphics.Color.rgb(seekR.getProgress(), seekG.getProgress(), seekB.getProgress());
+                    dbHelper.setGlobalSetting("theme_color", String.format("#%08X", color));
+                    applyThemeSettings();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private android.widget.TextView createLabel(String text) {
+        android.widget.TextView tv = new android.widget.TextView(this);
+        tv.setText(text);
+        tv.setPadding(0, 8, 0, 0);
+        return tv;
+    }
+
+    private android.widget.SeekBar createColorSeekBar(int progress) {
+        android.widget.SeekBar sb = new android.widget.SeekBar(this);
+        sb.setMax(255);
+        sb.setProgress(progress);
+        return sb;
+    }
+
+    private void applyThemeSettings() {
+        String colorHex = dbHelper.getGlobalSetting("theme_color");
+        int color;
+        if (colorHex != null) {
+            color = android.graphics.Color.parseColor(colorHex);
+        } else {
+            color = getResources().getColor(R.color.primary);
+        }
+
+        if (toolbar != null) {
+            toolbar.setBackgroundColor(color);
+        }
+        if (fab != null) {
+            fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(color));
+        }
     }
 
     private void setupDrawer() {

@@ -26,6 +26,7 @@
 
         <!-- Górny pasek -->
         <androidx.appcompat.widget.Toolbar
+            android:id="@+id/main_toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="@color/primary"
@@ -174,6 +175,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Set Background"
+            android:layout_margin="8dp"
+            android:paddingStart="16dp"
+            style="@style/Widget.MaterialComponents.Button.TextButton"/>
+
+        <Button
+            android:id="@+id/btn_change_theme"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/change_theme"
             android:layout_margin="8dp"
             android:paddingStart="16dp"
             style="@style/Widget.MaterialComponents.Button.TextButton"/>

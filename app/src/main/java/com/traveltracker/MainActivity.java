@@ -190,17 +190,38 @@ public class MainActivity extends AppCompatActivity {
     private void updateTagChips() {
         List<String> allTags = dbHelper.getAllUniqueTags();
         tagChipGroup.removeAllViews();
+        
         for (String tag : allTags) {
             Chip chip = new Chip(this);
             chip.setText(tag);
             chip.setCheckable(true);
             chip.setChecked(selectedTags.contains(tag));
             
+            // Używamy hashCode nazwy tagu do wygenerowania stałego odcienia (Hue)
+            // Wynik hashCode może być ujemny, więc bierzemy wartość bezwzględną
+            float hue = (Math.abs(tag.hashCode()) % 360);
+            
+            // Saturation 0.8f (żywe) i Value 0.9f (jasne) dla energetycznego efektu
+            int color = android.graphics.Color.HSVToColor(new float[]{hue, 0.8f, 0.9f});
+            
+            chip.setChipBackgroundColor(android.content.res.ColorStateList.valueOf(color));
+            chip.setTextColor(android.graphics.Color.WHITE);
+            
+            if (chip.isChecked()) {
+                chip.setChipStrokeWidth(5f);
+                chip.setChipStrokeColor(android.content.res.ColorStateList.valueOf(android.graphics.Color.BLACK));
+            } else {
+                chip.setChipStrokeWidth(0f);
+            }
+
             chip.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 if (isChecked) {
                     if (!selectedTags.contains(tag)) selectedTags.add(tag);
+                    chip.setChipStrokeWidth(5f);
+                    chip.setChipStrokeColor(android.content.res.ColorStateList.valueOf(android.graphics.Color.BLACK));
                 } else {
                     selectedTags.remove(tag);
+                    chip.setChipStrokeWidth(0f);
                 }
                 applyFilters();
             });

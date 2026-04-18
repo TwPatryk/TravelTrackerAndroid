@@ -25,12 +25,24 @@
             android:orientation="vertical">
 
         <!-- Górny pasek -->
-        <androidx.appcompat.widget.Toolbar
-            android:id="@+id/main_toolbar"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            android:background="@color/primary"
-            android:elevation="4dp">
+            android:layout_height="wrap_content">
+
+            <ImageView
+                android:id="@+id/toolbar_background_image"
+                android:layout_width="match_parent"
+                android:layout_height="?attr/actionBarSize"
+                android:scaleType="centerCrop"
+                android:importantForAccessibility="no"
+                android:visibility="gone"/>
+
+            <androidx.appcompat.widget.Toolbar
+                android:id="@+id/main_toolbar"
+                android:layout_width="match_parent"
+                android:layout_height="?attr/actionBarSize"
+                android:background="@color/primary"
+                android:elevation="4dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -72,6 +84,7 @@
 
             </LinearLayout>
         </androidx.appcompat.widget.Toolbar>
+    </FrameLayout>
 
         <!-- Filtry -->
         <LinearLayout
@@ -182,6 +195,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Set Background"
+            android:layout_margin="8dp"
+            android:paddingStart="16dp"
+            style="@style/Widget.MaterialComponents.Button.TextButton"/>
+
+        <Button
+            android:id="@+id/btn_set_toolbar_background"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Set Toolbar Background"
             android:layout_margin="8dp"
             android:paddingStart="16dp"
             style="@style/Widget.MaterialComponents.Button.TextButton"/>

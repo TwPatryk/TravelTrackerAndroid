@@ -56,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
     private ChipGroup tagChipGroup;
     private List<String> selectedTags = new ArrayList<>();
     private android.widget.ImageView backgroundImageView;
+    private android.widget.ImageView toolbarBackgroundImageView;
 
     private final ActivityResultLauncher<String> exportLauncher =
             registerForActivityResult(new ActivityResultContracts.CreateDocument("application/octet-stream"), uri -> {
@@ -80,6 +81,15 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
+    private final ActivityResultLauncher<String[]> toolbarBackgroundPickerLauncher =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+                if (uri != null) {
+                    getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    dbHelper.setGlobalSetting("toolbar_bg_path", uri.toString());
+                    applyBackgroundSettings();
+                }
+            });
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -98,6 +108,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applyBackgroundSettings() {
+        // Main Background
         String path = dbHelper.getGlobalSetting("main_bg_path");
         String opacityStr = dbHelper.getGlobalSetting("main_bg_opacity");
         String scaleType = dbHelper.getGlobalSetting("main_bg_scale_type");
@@ -113,48 +124,77 @@ public class MainActivity extends AppCompatActivity {
         } else {
             backgroundImageView.setVisibility(android.view.View.GONE);
         }
+
+        // Toolbar Background
+        String tPath = dbHelper.getGlobalSetting("toolbar_bg_path");
+        String tOpacityStr = dbHelper.getGlobalSetting("toolbar_bg_opacity");
+        String tScaleType = dbHelper.getGlobalSetting("toolbar_bg_scale_type");
+
+        float tOpacity = (tOpacityStr != null) ? Float.parseFloat(tOpacityStr) : 1.0f;
+        if (tScaleType == null) tScaleType = "CENTER_CROP";
+
+        if (tPath != null) {
+            toolbarBackgroundImageView.setImageURI(Uri.parse(tPath));
+            toolbarBackgroundImageView.setAlpha(tOpacity);
+            toolbarBackgroundImageView.setScaleType(android.widget.ImageView.ScaleType.valueOf(tScaleType));
+            toolbarBackgroundImageView.setVisibility(android.view.View.VISIBLE);
+            toolbar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        } else {
+            toolbarBackgroundImageView.setVisibility(android.view.View.GONE);
+            applyThemeSettings(); // Restore toolbar color
+        }
     }
 
-    private void showBackgroundSettingsDialog() {
+    private void showBackgroundSettingsDialog(boolean forToolbar) {
         android.view.View dialogView = getLayoutInflater().inflate(R.layout.dialog_background_settings, null);
         androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setView(dialogView)
                 .create();
+
+        android.widget.TextView title = dialogView.findViewById(android.R.id.text1);
+        // The layout doesn't have an ID for the title, but we can find it or just let it be.
+        // Let's assume the user knows it's for toolbar if they clicked that button.
 
         android.widget.SeekBar seekBar = dialogView.findViewById(R.id.seekbar_opacity);
         android.widget.RadioGroup rgScaleType = dialogView.findViewById(R.id.rg_scale_type);
         Button btnSelect = dialogView.findViewById(R.id.btn_select_image);
         Button btnClear = dialogView.findViewById(R.id.btn_clear_bg);
 
-        String currentOpacity = dbHelper.getGlobalSetting("main_bg_opacity");
+        String prefix = forToolbar ? "toolbar_bg_" : "main_bg_";
+
+        String currentOpacity = dbHelper.getGlobalSetting(prefix + "opacity");
         seekBar.setProgress((int) ((currentOpacity != null ? Float.parseFloat(currentOpacity) : 1.0f) * 100));
 
-        String currentScale = dbHelper.getGlobalSetting("main_bg_scale_type");
+        String currentScale = dbHelper.getGlobalSetting(prefix + "scale_type");
         if ("FIT_CENTER".equals(currentScale)) rgScaleType.check(R.id.rb_fit_center);
         else if ("FIT_XY".equals(currentScale)) rgScaleType.check(R.id.rb_fit_xy);
         else rgScaleType.check(R.id.rb_center_crop);
 
         btnSelect.setOnClickListener(v -> {
-            backgroundPickerLauncher.launch(new String[]{"image/*"});
+            if (forToolbar) {
+                toolbarBackgroundPickerLauncher.launch(new String[]{"image/*"});
+            } else {
+                backgroundPickerLauncher.launch(new String[]{"image/*"});
+            }
             dialog.dismiss();
         });
 
         btnClear.setOnClickListener(v -> {
-            dbHelper.setGlobalSetting("main_bg_path", null);
+            dbHelper.setGlobalSetting(prefix + "path", null);
             applyBackgroundSettings();
             dialog.dismiss();
         });
 
         dialog.setOnDismissListener(d -> {
             float opacity = seekBar.getProgress() / 100f;
-            dbHelper.setGlobalSetting("main_bg_opacity", String.valueOf(opacity));
+            dbHelper.setGlobalSetting(prefix + "opacity", String.valueOf(opacity));
             
             String selectedScale = "CENTER_CROP";
             int checkedId = rgScaleType.getCheckedRadioButtonId();
             if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
             else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
             
-            dbHelper.setGlobalSetting("main_bg_scale_type", selectedScale);
+            dbHelper.setGlobalSetting(prefix + "scale_type", selectedScale);
             applyBackgroundSettings();
         });
 
@@ -166,6 +206,7 @@ public class MainActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.entries_recycler_view);
         tagChipGroup = findViewById(R.id.tag_chip_group);
         backgroundImageView = findViewById(R.id.main_background_image);
+        toolbarBackgroundImageView = findViewById(R.id.toolbar_background_image);
         fab = findViewById(R.id.fab_add_entry);
         toolbar = findViewById(R.id.main_toolbar);
 
@@ -174,11 +215,13 @@ public class MainActivity extends AppCompatActivity {
         Button btnExport = findViewById(R.id.btn_export);
         Button btnImport = findViewById(R.id.btn_import);
         Button btnSetBg = findViewById(R.id.btn_set_background);
+        Button btnSetToolbarBg = findViewById(R.id.btn_set_toolbar_background);
         Button btnChangeTheme = findViewById(R.id.btn_change_theme);
 
         btnExport.setOnClickListener(v -> exportLauncher.launch("travel_tracker_backup.db"));
         btnImport.setOnClickListener(v -> importLauncher.launch(new String[]{"application/octet-stream", "*/*"}));
-        btnSetBg.setOnClickListener(v -> showBackgroundSettingsDialog());
+        btnSetBg.setOnClickListener(v -> showBackgroundSettingsDialog(false));
+        btnSetToolbarBg.setOnClickListener(v -> showBackgroundSettingsDialog(true));
         btnChangeTheme.setOnClickListener(v -> showThemeChooserDialog());
 
         applyThemeSettings();
@@ -282,6 +325,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applyThemeSettings() {
+        String path = dbHelper.getGlobalSetting("toolbar_bg_path");
+        if (path != null) {
+            // If toolbar has a background image, don't override with theme color
+            return;
+        }
+
         String colorHex = dbHelper.getGlobalSetting("theme_color");
         int color;
         if (colorHex != null) {

@@ -17,6 +17,7 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -133,7 +134,7 @@ public class AddEditEntryFragment extends DialogFragment {
             if (currentEntry.getMapPins() != null) itemsList.addAll(currentEntry.getMapPins());
             
             Collections.sort(itemsList, Comparator.comparingInt(EntryItem::getOrder));
-            renderItems();
+            renderItems(false);
         }
 
         btnAddNote.setOnClickListener(v -> {
@@ -141,7 +142,7 @@ public class AddEditEntryFragment extends DialogFragment {
             newNote.setText("");
             newNote.setOrder(itemsList.size());
             itemsList.add(newNote);
-            renderItems();
+            renderItems(true); // Pass true to focus on the new note
         });
 
         btnAddPhoto.setOnClickListener(v -> {
@@ -195,7 +196,7 @@ public class AddEditEntryFragment extends DialogFragment {
                 }
                 newPin.setOrder(itemsList.size());
                 itemsList.add(newPin);
-                renderItems();
+                renderItems(false);
             } catch (SecurityException e) {
                 Toast.makeText(getContext(), "Permission error", Toast.LENGTH_SHORT).show();
             }
@@ -232,7 +233,7 @@ public class AddEditEntryFragment extends DialogFragment {
                 newPhoto.setPath(file.getAbsolutePath());
                 newPhoto.setOrder(itemsList.size());
                 itemsList.add(newPhoto);
-                renderItems();
+                renderItems(false);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -240,7 +241,7 @@ public class AddEditEntryFragment extends DialogFragment {
         }
     }
 
-    private void renderItems() {
+    private void renderItems(boolean focusLastNote) {
         itemsContainer.removeAllViews();
         for (int i = 0; i < itemsList.size(); i++) {
             EntryItem item = itemsList.get(i);
@@ -252,6 +253,17 @@ public class AddEditEntryFragment extends DialogFragment {
                 EditText noteInput = itemView.findViewById(R.id.note_text);
                 Note note = (Note) item;
                 noteInput.setText(note.getText());
+
+                if (focusLastNote && i == itemsList.size() - 1) {
+                    noteInput.requestFocus();
+                    noteInput.postDelayed(() -> {
+                        InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+                        if (imm != null) {
+                            imm.showSoftInput(noteInput, InputMethodManager.SHOW_IMPLICIT);
+                        }
+                    }, 100);
+                }
+
                 noteInput.addTextChangedListener(new TextWatcher() {
                     @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
                     @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -262,7 +274,7 @@ public class AddEditEntryFragment extends DialogFragment {
                 View btnDelete = itemView.findViewById(R.id.btn_delete_note);
                 btnDelete.setOnClickListener(v -> {
                     itemsList.remove(index);
-                    renderItems();
+                    renderItems(false);
                 });
             } else if (item.isMapPin()) {
                 itemView = getLayoutInflater().inflate(R.layout.item_map_pin, itemsContainer, false);
@@ -292,7 +304,7 @@ public class AddEditEntryFragment extends DialogFragment {
                 View btnDelete = itemView.findViewById(R.id.btn_delete_pin);
                 btnDelete.setOnClickListener(v -> {
                     itemsList.remove(index);
-                    renderItems();
+                    renderItems(false);
                 });
             } else {
                 itemView = getLayoutInflater().inflate(R.layout.item_photo, itemsContainer, false);
@@ -309,7 +321,7 @@ public class AddEditEntryFragment extends DialogFragment {
                 View btnDelete = itemView.findViewById(R.id.btn_delete_photo);
                 btnDelete.setOnClickListener(v -> {
                     itemsList.remove(index);
-                    renderItems();
+                    renderItems(false);
                 });
             }
             itemsContainer.addView(itemView);

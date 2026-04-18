@@ -8,18 +8,18 @@
 
     <ImageView
         android:id="@+id/photo_image"
-        android:layout_width="100dp"
-        android:layout_height="100dp"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
         android:scaleType="centerCrop"
         android:background="#f0f0f0"
-        android:padding="4dp"/>
+        android:layout_weight="1"/>
 
     <ImageButton
         android:id="@+id/btn_delete_photo"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:src="@android:drawable/ic_menu_delete"
-        android:layout_marginStart="8dp"
+        android:layout_gravity="top"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:tint="@color/delete_red"
         android:contentDescription="Delete photo"/>

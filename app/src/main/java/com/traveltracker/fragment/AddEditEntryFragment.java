@@ -1,13 +1,17 @@
 package com.traveltracker.fragment;
 
 import android.Manifest;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -28,6 +32,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 
+import com.bumptech.glide.Glide;
 import com.traveltracker.R;
 import com.traveltracker.database.DatabaseHelper;
 import com.traveltracker.database.EntryItem;
@@ -36,6 +41,10 @@ import com.traveltracker.database.Note;
 import com.traveltracker.database.Photo;
 import com.traveltracker.database.TravelEntry;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -63,6 +72,13 @@ public class AddEditEntryFragment extends DialogFragment {
                     addNewPinWithCurrentLocation();
                 } else {
                     Toast.makeText(getContext(), "Location permission denied", Toast.LENGTH_SHORT).show();
+                }
+            });
+
+    private final ActivityResultLauncher<String> galleryLauncher =
+            registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
+                if (uri != null) {
+                    saveImageToInternalStorage(uri);
                 }
             });
 
@@ -129,11 +145,7 @@ public class AddEditEntryFragment extends DialogFragment {
         });
 
         btnAddPhoto.setOnClickListener(v -> {
-            Photo newPhoto = new Photo();
-            newPhoto.setPath("fake_path_" + System.currentTimeMillis() + ".jpg");
-            newPhoto.setOrder(itemsList.size());
-            itemsList.add(newPhoto);
-            renderItems();
+            galleryLauncher.launch("image/*");
         });
 
         btnAddPin.setOnClickListener(v -> {
@@ -187,6 +199,44 @@ public class AddEditEntryFragment extends DialogFragment {
             } catch (SecurityException e) {
                 Toast.makeText(getContext(), "Permission error", Toast.LENGTH_SHORT).show();
             }
+        }
+    }
+
+    private void saveImageToInternalStorage(Uri uri) {
+        try {
+            InputStream inputStream = requireContext().getContentResolver().openInputStream(uri);
+            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+            if (inputStream != null) inputStream.close();
+
+            if (bitmap != null) {
+                // Skalowanie obrazu (maksymalnie 1920px na dłuższym boku)
+                int maxWidth = 1920;
+                int maxHeight = 1920;
+                float ratio = Math.min((float) maxWidth / bitmap.getWidth(), (float) maxHeight / bitmap.getHeight());
+                if (ratio < 1.0f) {
+                    int width = Math.round(ratio * bitmap.getWidth());
+                    int height = Math.round(ratio * bitmap.getHeight());
+                    bitmap = Bitmap.createScaledBitmap(bitmap, width, height, true);
+                }
+
+                String fileName = "IMG_" + System.currentTimeMillis() + ".jpg";
+                File file = new File(requireContext().getFilesDir(), fileName);
+                FileOutputStream out = new FileOutputStream(file);
+                
+                // Kompresja do JPEG z jakością 80%
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out);
+                out.flush();
+                out.close();
+
+                Photo newPhoto = new Photo();
+                newPhoto.setPath(file.getAbsolutePath());
+                newPhoto.setOrder(itemsList.size());
+                itemsList.add(newPhoto);
+                renderItems();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(getContext(), "Error saving image", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -247,7 +297,15 @@ public class AddEditEntryFragment extends DialogFragment {
             } else {
                 itemView = getLayoutInflater().inflate(R.layout.item_photo, itemsContainer, false);
                 ImageView imageView = itemView.findViewById(R.id.photo_image);
-                // Placeholder logic for photo
+                Photo photo = (Photo) item;
+
+                Glide.with(this)
+                        .load(photo.getPath())
+                        .placeholder(android.R.drawable.ic_menu_gallery)
+                        .into(imageView);
+                
+                imageView.setOnClickListener(v -> showFullScreenImage(photo.getPath()));
+
                 View btnDelete = itemView.findViewById(R.id.btn_delete_photo);
                 btnDelete.setOnClickListener(v -> {
                     itemsList.remove(index);
@@ -256,6 +314,21 @@ public class AddEditEntryFragment extends DialogFragment {
             }
             itemsContainer.addView(itemView);
         }
+    }
+
+    private void showFullScreenImage(String path) {
+        Dialog dialog = new Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        dialog.setContentView(R.layout.dialog_full_screen_image);
+
+        ImageView fullScreenImage = dialog.findViewById(R.id.full_screen_image);
+        ImageButton btnClose = dialog.findViewById(R.id.btn_close_full_screen);
+
+        Glide.with(this)
+                .load(path)
+                .into(fullScreenImage);
+
+        btnClose.setOnClickListener(v -> dialog.dismiss());
+        dialog.show();
     }
 
     private void saveEntry() {

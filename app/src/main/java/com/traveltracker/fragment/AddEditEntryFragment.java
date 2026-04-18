@@ -150,13 +150,63 @@ public class AddEditEntryFragment extends DialogFragment {
         });
 
         btnAddPin.setOnClickListener(v -> {
-            checkLocationPermissionAndAddPin();
+            showAddPinOptions();
         });
 
         btnSave.setOnClickListener(v -> saveEntry());
         btnCancel.setOnClickListener(v -> dismiss());
 
         return view;
+    }
+
+    private void showAddPinOptions() {
+        String[] options = {"Current Location", "Enter Coordinates"};
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Add Map Pin")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        checkLocationPermissionAndAddPin();
+                    } else {
+                        showCustomLocationDialog();
+                    }
+                })
+                .show();
+    }
+
+    private void showCustomLocationDialog() {
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_custom_location, null);
+        EditText latInput = dialogView.findViewById(R.id.lat_input);
+        EditText lonInput = dialogView.findViewById(R.id.lon_input);
+
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Enter Coordinates")
+                .setView(dialogView)
+                .setPositiveButton("Add", (dialog, which) -> {
+                    try {
+                        String latStr = latInput.getText().toString();
+                        String lonStr = lonInput.getText().toString();
+
+                        if (latStr.isEmpty() || lonStr.isEmpty()) {
+                            Toast.makeText(getContext(), "Please enter both coordinates", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+
+                        double lat = Double.parseDouble(latStr);
+                        double lon = Double.parseDouble(lonStr);
+
+                        MapPin newPin = new MapPin();
+                        newPin.setLabel("");
+                        newPin.setLatitude(lat);
+                        newPin.setLongitude(lon);
+                        newPin.setOrder(itemsList.size());
+                        itemsList.add(newPin);
+                        renderItems(false);
+                    } catch (NumberFormatException e) {
+                        Toast.makeText(getContext(), "Invalid coordinates format", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void checkLocationPermissionAndAddPin() {

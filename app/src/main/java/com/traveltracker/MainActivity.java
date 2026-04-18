@@ -13,8 +13,10 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -137,6 +139,39 @@ public class MainActivity extends AppCompatActivity {
                         .show();
             }
         });
+
+        ItemTouchHelper.Callback callback = new ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
+                int fromPos = viewHolder.getAdapterPosition();
+                int toPos = target.getAdapterPosition();
+                java.util.Collections.swap(filteredEntries, fromPos, toPos);
+                adapter.notifyItemMoved(fromPos, toPos);
+                return true;
+            }
+
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                // Not used
+            }
+
+            @Override
+            public void clearView(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
+                super.clearView(recyclerView, viewHolder);
+                // Zapisz nową kolejność w bazie danych
+                for (int i = 0; i < filteredEntries.size(); i++) {
+                    dbHelper.updateEntryOrder(filteredEntries.get(i).getId(), i);
+                }
+                // Odśwież listę główną (allEntries), aby zachować spójność
+                allEntries = dbHelper.getAllEntries();
+                updateDrawerMenu();
+            }
+        };
+
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(callback);
+        itemTouchHelper.attachToRecyclerView(recyclerView);
+        adapter.setItemTouchHelper(itemTouchHelper);
+
         recyclerView.setAdapter(adapter);
     }
 

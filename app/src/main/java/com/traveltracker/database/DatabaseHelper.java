@@ -12,13 +12,14 @@ import java.util.List;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "travel_tracker.db";
-    private static final int DATABASE_VERSION = 2;
+    private static final int DATABASE_VERSION = 3;
 
     // Tabela główna
     private static final String TABLE_ENTRIES = "entries";
     private static final String COLUMN_ID = "id";
     private static final String COLUMN_TITLE = "title";
     private static final String COLUMN_CREATED_AT = "created_at";
+    private static final String COLUMN_ENTRY_ORDER = "entry_order";
 
     // Tabela notatek
     private static final String TABLE_NOTES = "notes";
@@ -51,7 +52,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         String createEntriesTable = "CREATE TABLE " + TABLE_ENTRIES + " (" +
                 COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 COLUMN_TITLE + " TEXT NOT NULL, " +
-                COLUMN_CREATED_AT + " TEXT DEFAULT CURRENT_TIMESTAMP)";
+                COLUMN_CREATED_AT + " TEXT DEFAULT CURRENT_TIMESTAMP, " +
+                COLUMN_ENTRY_ORDER + " INTEGER DEFAULT 0)";
         db.execSQL(createEntriesTable);
 
         // Tabela notatek
@@ -108,7 +110,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         List<TravelEntry> entries = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
 
-        String query = "SELECT * FROM " + TABLE_ENTRIES + " ORDER BY " + COLUMN_CREATED_AT + " DESC";
+        String query = "SELECT * FROM " + TABLE_ENTRIES + " ORDER BY " + COLUMN_ENTRY_ORDER + " ASC, " + COLUMN_CREATED_AT + " DESC";
         Cursor cursor = db.rawQuery(query, null);
 
         if (cursor.moveToFirst()) {
@@ -168,6 +170,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public void deleteEntry(long id) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_ENTRIES, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
+        db.close();
+    }
+
+    public void updateEntryOrder(long id, int order) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_ENTRY_ORDER, order);
+        db.update(TABLE_ENTRIES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
         db.close();
     }
 

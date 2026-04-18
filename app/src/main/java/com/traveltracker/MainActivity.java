@@ -281,10 +281,18 @@ public class MainActivity extends AppCompatActivity {
 
     private void applyFilters() {
         String searchQuery = searchEditText.getText().toString().toLowerCase().trim();
+        boolean toVisitSelected = selectedTags.contains("do zwiedzenia");
 
         filteredEntries.clear();
 
         for (TravelEntry entry : allEntries) {
+            boolean hasToVisitTag = entry.getTags() != null && entry.getTags().contains("do zwiedzenia");
+
+            // Jeśli wpis ma tag "do zwiedzenia", pokaż go tylko gdy ten tag jest zaznaczony w filtrach
+            if (hasToVisitTag && !toVisitSelected) {
+                continue;
+            }
+
             // Sprawdź czy wpis posiada WSZYSTKIE wybrane tagi (AND)
             boolean matchesTags = true;
             if (!selectedTags.isEmpty()) {

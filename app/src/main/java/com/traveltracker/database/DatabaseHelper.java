@@ -12,7 +12,7 @@ import java.util.List;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "travel_tracker.db";
-    private static final int DATABASE_VERSION = 4;
+    private static final int DATABASE_VERSION = 5;
 
     // Tabela główna
     private static final String TABLE_ENTRIES = "entries";
@@ -20,8 +20,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_TITLE = "title";
     private static final String COLUMN_CREATED_AT = "created_at";
     private static final String COLUMN_ENTRY_ORDER = "entry_order";
+    private static final String COLUMN_BG_PATH = "bg_path";
+    private static final String COLUMN_BG_OPACITY = "bg_opacity";
+    private static final String COLUMN_BG_SCALE_TYPE = "bg_scale_type";
 
-    // Tabela tagów
+    // Tabela ustawień globalnych
+    private static final String TABLE_SETTINGS = "settings";
+    private static final String COLUMN_SETTING_KEY = "setting_key";
+    private static final String COLUMN_SETTING_VALUE = "setting_value";
     private static final String TABLE_TAGS = "tags";
     private static final String COLUMN_TAG_ID = "id";
     private static final String COLUMN_TAG_NAME = "tag_name";
@@ -58,8 +64,17 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 COLUMN_TITLE + " TEXT NOT NULL, " +
                 COLUMN_CREATED_AT + " TEXT DEFAULT CURRENT_TIMESTAMP, " +
-                COLUMN_ENTRY_ORDER + " INTEGER DEFAULT 0)";
+                COLUMN_ENTRY_ORDER + " INTEGER DEFAULT 0, " +
+                COLUMN_BG_PATH + " TEXT, " +
+                COLUMN_BG_OPACITY + " REAL DEFAULT 1.0, " +
+                COLUMN_BG_SCALE_TYPE + " TEXT DEFAULT 'CENTER_CROP')";
         db.execSQL(createEntriesTable);
+
+        // Tabela ustawień
+        String createSettingsTable = "CREATE TABLE " + TABLE_SETTINGS + " (" +
+                COLUMN_SETTING_KEY + " TEXT PRIMARY KEY, " +
+                COLUMN_SETTING_VALUE + " TEXT)";
+        db.execSQL(createSettingsTable);
 
         // Tabela notatek
         String createNotesTable = "CREATE TABLE " + TABLE_NOTES + " (" +
@@ -101,12 +116,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_TAGS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_NOTES);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_PHOTOS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_PINS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_ENTRIES);
-        onCreate(db);
+        if (oldVersion < 5) {
+            db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_PATH + " TEXT");
+            db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_OPACITY + " REAL DEFAULT 1.0");
+            db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_SCALE_TYPE + " TEXT DEFAULT 'CENTER_CROP'");
+            
+            db.execSQL("CREATE TABLE " + TABLE_SETTINGS + " (" +
+                    COLUMN_SETTING_KEY + " TEXT PRIMARY KEY, " +
+                    COLUMN_SETTING_VALUE + " TEXT)");
+        }
     }
 
     // ==================== METODY DLA WPISÓW ====================
@@ -133,6 +151,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 entry.setId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ID)));
                 entry.setTitle(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TITLE)));
                 entry.setCreatedAt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CREATED_AT)));
+                entry.setBackgroundPath(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_PATH)));
+                entry.setBackgroundOpacity(cursor.getFloat(cursor.getColumnIndexOrThrow(COLUMN_BG_OPACITY)));
+                entry.setBackgroundScaleType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_SCALE_TYPE)));
 
                 // Pobierz notatki dla tego wpisu
                 entry.setNotes(getNotesForEntry(entry.getId()));
@@ -166,6 +187,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             entry.setId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ID)));
             entry.setTitle(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TITLE)));
             entry.setCreatedAt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CREATED_AT)));
+            entry.setBackgroundPath(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_PATH)));
+            entry.setBackgroundOpacity(cursor.getFloat(cursor.getColumnIndexOrThrow(COLUMN_BG_OPACITY)));
+            entry.setBackgroundScaleType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_SCALE_TYPE)));
             entry.setNotes(getNotesForEntry(id));
             entry.setPhotos(getPhotosForEntry(id));
             entry.setMapPins(getMapPinsForEntry(id));
@@ -406,6 +430,37 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cursor.close();
         db.close();
         return tags;
+    }
+
+    public void updateEntryBackground(long id, String path, float opacity, String scaleType) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_BG_PATH, path);
+        values.put(COLUMN_BG_OPACITY, opacity);
+        values.put(COLUMN_BG_SCALE_TYPE, scaleType);
+        db.update(TABLE_ENTRIES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
+        db.close();
+    }
+
+    public void setGlobalSetting(String key, String value) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_SETTING_KEY, key);
+        values.put(COLUMN_SETTING_VALUE, value);
+        db.replace(TABLE_SETTINGS, null, values);
+        db.close();
+    }
+
+    public String getGlobalSetting(String key) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String value = null;
+        Cursor cursor = db.query(TABLE_SETTINGS, new String[]{COLUMN_SETTING_VALUE}, COLUMN_SETTING_KEY + " = ?", new String[]{key}, null, null, null);
+        if (cursor.moveToFirst()) {
+            value = cursor.getString(0);
+        }
+        cursor.close();
+        db.close();
+        return value;
     }
 
     public void deleteAllTagsForEntry(long entryId) {

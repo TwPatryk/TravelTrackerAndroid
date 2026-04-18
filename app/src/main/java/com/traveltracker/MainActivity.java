@@ -52,6 +52,7 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout filterContainer;
     private ChipGroup tagChipGroup;
     private List<String> selectedTags = new ArrayList<>();
+    private android.widget.ImageView backgroundImageView;
 
     private final ActivityResultLauncher<String> exportLauncher =
             registerForActivityResult(new ActivityResultContracts.CreateDocument("application/octet-stream"), uri -> {
@@ -64,6 +65,15 @@ public class MainActivity extends AppCompatActivity {
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
                 if (uri != null) {
                     importDatabase(uri);
+                }
+            });
+
+    private final ActivityResultLauncher<String[]> backgroundPickerLauncher =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+                if (uri != null) {
+                    getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    dbHelper.setGlobalSetting("main_bg_path", uri.toString());
+                    applyBackgroundSettings();
                 }
             });
 
@@ -80,22 +90,90 @@ public class MainActivity extends AppCompatActivity {
         setupDrawer();
         setupRecyclerView();
         setupFilters();
+        applyBackgroundSettings();
         loadEntries();
+    }
+
+    private void applyBackgroundSettings() {
+        String path = dbHelper.getGlobalSetting("main_bg_path");
+        String opacityStr = dbHelper.getGlobalSetting("main_bg_opacity");
+        String scaleType = dbHelper.getGlobalSetting("main_bg_scale_type");
+
+        float opacity = (opacityStr != null) ? Float.parseFloat(opacityStr) : 1.0f;
+        if (scaleType == null) scaleType = "CENTER_CROP";
+
+        if (path != null) {
+            backgroundImageView.setImageURI(Uri.parse(path));
+            backgroundImageView.setAlpha(opacity);
+            backgroundImageView.setScaleType(android.widget.ImageView.ScaleType.valueOf(scaleType));
+            backgroundImageView.setVisibility(android.view.View.VISIBLE);
+        } else {
+            backgroundImageView.setVisibility(android.view.View.GONE);
+        }
+    }
+
+    private void showBackgroundSettingsDialog() {
+        android.view.View dialogView = getLayoutInflater().inflate(R.layout.dialog_background_settings, null);
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setView(dialogView)
+                .create();
+
+        android.widget.SeekBar seekBar = dialogView.findViewById(R.id.seekbar_opacity);
+        android.widget.RadioGroup rgScaleType = dialogView.findViewById(R.id.rg_scale_type);
+        Button btnSelect = dialogView.findViewById(R.id.btn_select_image);
+        Button btnClear = dialogView.findViewById(R.id.btn_clear_bg);
+
+        String currentOpacity = dbHelper.getGlobalSetting("main_bg_opacity");
+        seekBar.setProgress((int) ((currentOpacity != null ? Float.parseFloat(currentOpacity) : 1.0f) * 100));
+
+        String currentScale = dbHelper.getGlobalSetting("main_bg_scale_type");
+        if ("FIT_CENTER".equals(currentScale)) rgScaleType.check(R.id.rb_fit_center);
+        else if ("FIT_XY".equals(currentScale)) rgScaleType.check(R.id.rb_fit_xy);
+        else rgScaleType.check(R.id.rb_center_crop);
+
+        btnSelect.setOnClickListener(v -> {
+            backgroundPickerLauncher.launch(new String[]{"image/*"});
+            dialog.dismiss();
+        });
+
+        btnClear.setOnClickListener(v -> {
+            dbHelper.setGlobalSetting("main_bg_path", null);
+            applyBackgroundSettings();
+            dialog.dismiss();
+        });
+
+        dialog.setOnDismissListener(d -> {
+            float opacity = seekBar.getProgress() / 100f;
+            dbHelper.setGlobalSetting("main_bg_opacity", String.valueOf(opacity));
+            
+            String selectedScale = "CENTER_CROP";
+            int checkedId = rgScaleType.getCheckedRadioButtonId();
+            if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
+            else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
+            
+            dbHelper.setGlobalSetting("main_bg_scale_type", selectedScale);
+            applyBackgroundSettings();
+        });
+
+        dialog.show();
     }
 
     private void initViews() {
         drawerLayout = findViewById(R.id.drawer_layout);
         recyclerView = findViewById(R.id.entries_recycler_view);
         tagChipGroup = findViewById(R.id.tag_chip_group);
+        backgroundImageView = findViewById(R.id.main_background_image);
         FloatingActionButton fab = findViewById(R.id.fab_add_entry);
 
         fab.setOnClickListener(v -> openAddEditFragment(null));
 
         Button btnExport = findViewById(R.id.btn_export);
         Button btnImport = findViewById(R.id.btn_import);
+        Button btnSetBg = findViewById(R.id.btn_set_background);
 
         btnExport.setOnClickListener(v -> exportLauncher.launch("travel_tracker_backup.db"));
         btnImport.setOnClickListener(v -> importLauncher.launch(new String[]{"application/octet-stream", "*/*"}));
+        btnSetBg.setOnClickListener(v -> showBackgroundSettingsDialog());
     }
 
     private void setupDrawer() {

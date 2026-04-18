@@ -10,6 +10,9 @@ public class TravelEntry {
     private List<Photo> photos;
     private List<MapPin> mapPins;
     private List<String> tags;
+    private String backgroundPath;
+    private float backgroundOpacity = 1.0f;
+    private String backgroundScaleType = "CENTER_CROP";
 
     // Getters i Setters
     public long getId() { return id; }
@@ -32,4 +35,13 @@ public class TravelEntry {
 
     public List<String> getTags() { return tags; }
     public void setTags(List<String> tags) { this.tags = tags; }
+
+    public String getBackgroundPath() { return backgroundPath; }
+    public void setBackgroundPath(String backgroundPath) { this.backgroundPath = backgroundPath; }
+
+    public float getBackgroundOpacity() { return backgroundOpacity; }
+    public void setBackgroundOpacity(float backgroundOpacity) { this.backgroundOpacity = backgroundOpacity; }
+
+    public String getBackgroundScaleType() { return backgroundScaleType; }
+    public void setBackgroundScaleType(String backgroundScaleType) { this.backgroundScaleType = backgroundScaleType; }
 }

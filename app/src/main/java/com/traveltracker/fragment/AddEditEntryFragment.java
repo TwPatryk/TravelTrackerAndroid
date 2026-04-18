@@ -68,8 +68,20 @@ public class AddEditEntryFragment extends DialogFragment {
     private RecyclerView itemsRecyclerView;
     private ItemsAdapter itemsAdapter;
     private ItemTouchHelper itemTouchHelper;
+    private ImageView backgroundImageView;
 
     private List<EntryItem> itemsList = new ArrayList<>();
+
+    private final ActivityResultLauncher<String[]> backgroundPickerLauncher =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+                if (uri != null) {
+                    requireContext().getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    if (currentEntry != null) {
+                        currentEntry.setBackgroundPath(uri.toString());
+                        applyBackgroundSettings();
+                    }
+                }
+            });
 
     private final ActivityResultLauncher<String[]> locationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -126,6 +138,7 @@ public class AddEditEntryFragment extends DialogFragment {
         titleInput = view.findViewById(R.id.entry_title_input);
         tagsInput = view.findViewById(R.id.entry_tags_input);
         itemsRecyclerView = view.findViewById(R.id.items_recycler_view);
+        backgroundImageView = view.findViewById(R.id.entry_background_image);
 
         itemsRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         itemsAdapter = new ItemsAdapter();
@@ -160,6 +173,7 @@ public class AddEditEntryFragment extends DialogFragment {
         Button btnAddPin = view.findViewById(R.id.btn_add_pin);
         Button btnSave = view.findViewById(R.id.btn_save_entry);
         Button btnCancel = view.findViewById(R.id.btn_cancel_entry);
+        Button btnEditBg = view.findViewById(R.id.btn_edit_background);
 
         if (currentEntry != null) {
             titleInput.setText(currentEntry.getTitle());
@@ -173,6 +187,7 @@ public class AddEditEntryFragment extends DialogFragment {
             
             Collections.sort(itemsList, Comparator.comparingInt(EntryItem::getOrder));
             itemsAdapter.notifyDataSetChanged();
+            applyBackgroundSettings();
         }
 
         btnAddNote.setOnClickListener(v -> {
@@ -189,6 +204,14 @@ public class AddEditEntryFragment extends DialogFragment {
 
         btnAddPin.setOnClickListener(v -> {
             showAddPinOptions();
+        });
+
+        btnEditBg.setOnClickListener(v -> {
+            if (currentEntry == null) {
+                Toast.makeText(getContext(), "Please save the entry first to set a background", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            showBackgroundSettingsDialog();
         });
 
         btnSave.setOnClickListener(v -> saveEntry());
@@ -336,6 +359,68 @@ public class AddEditEntryFragment extends DialogFragment {
         dialog.show();
     }
 
+    private void applyBackgroundSettings() {
+        if (currentEntry == null || backgroundImageView == null) return;
+        
+        String path = currentEntry.getBackgroundPath();
+        float opacity = currentEntry.getBackgroundOpacity();
+        String scaleType = currentEntry.getBackgroundScaleType();
+
+        if (path != null) {
+            backgroundImageView.setImageURI(Uri.parse(path));
+            backgroundImageView.setAlpha(opacity);
+            backgroundImageView.setScaleType(ImageView.ScaleType.valueOf(scaleType));
+            backgroundImageView.setVisibility(View.VISIBLE);
+        } else {
+            backgroundImageView.setVisibility(View.GONE);
+        }
+    }
+
+    private void showBackgroundSettingsDialog() {
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_background_settings, null);
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setView(dialogView)
+                .create();
+
+        android.widget.SeekBar seekBar = dialogView.findViewById(R.id.seekbar_opacity);
+        android.widget.RadioGroup rgScaleType = dialogView.findViewById(R.id.rg_scale_type);
+        Button btnSelect = dialogView.findViewById(R.id.btn_select_image);
+        Button btnClear = dialogView.findViewById(R.id.btn_clear_bg);
+
+        seekBar.setProgress((int) (currentEntry.getBackgroundOpacity() * 100));
+
+        String currentScale = currentEntry.getBackgroundScaleType();
+        if ("FIT_CENTER".equals(currentScale)) rgScaleType.check(R.id.rb_fit_center);
+        else if ("FIT_XY".equals(currentScale)) rgScaleType.check(R.id.rb_fit_xy);
+        else rgScaleType.check(R.id.rb_center_crop);
+
+        btnSelect.setOnClickListener(v -> {
+            backgroundPickerLauncher.launch(new String[]{"image/*"});
+            dialog.dismiss();
+        });
+
+        btnClear.setOnClickListener(v -> {
+            currentEntry.setBackgroundPath(null);
+            applyBackgroundSettings();
+            dialog.dismiss();
+        });
+
+        dialog.setOnDismissListener(d -> {
+            float opacity = seekBar.getProgress() / 100f;
+            currentEntry.setBackgroundOpacity(opacity);
+            
+            String selectedScale = "CENTER_CROP";
+            int checkedId = rgScaleType.getCheckedRadioButtonId();
+            if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
+            else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
+            
+            currentEntry.setBackgroundScaleType(selectedScale);
+            applyBackgroundSettings();
+        });
+
+        dialog.show();
+    }
+
     private void saveEntry() {
         String title = titleInput.getText().toString().trim();
         String tagsText = tagsInput.getText().toString().trim();
@@ -377,6 +462,11 @@ public class AddEditEntryFragment extends DialogFragment {
             } else {
                 dbHelper.insertPhoto(entryId, ((Photo) item).getPath(), i);
             }
+        }
+
+        if (currentEntry != null) {
+            dbHelper.updateEntryBackground(entryId, currentEntry.getBackgroundPath(), 
+                currentEntry.getBackgroundOpacity(), currentEntry.getBackgroundScaleType());
         }
 
         if (onEntrySavedListener != null) {

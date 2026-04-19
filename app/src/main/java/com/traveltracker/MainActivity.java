@@ -277,13 +277,9 @@ public class MainActivity extends AppCompatActivity {
             } else if (fColorHex != null && !fColorHex.isEmpty()) {
                 if (fabBackgroundImageView != null) fabBackgroundImageView.setVisibility(android.view.View.GONE);
                 finalFabColor = safeParseColor(fColorHex, themeColor);
-                if (fabBackgroundOverlay != null) {
-                    fabBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
-                    fabBackgroundOverlay.setAlpha(1.0f);
-                    fabBackgroundOverlay.setBackgroundColor(finalFabColor);
-                }
+                if (fabBackgroundOverlay != null) fabBackgroundOverlay.setVisibility(android.view.View.GONE);
                 if (fab != null) {
-                    fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
+                    fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(finalFabColor));
                 }
             } else {
                 if (fabBackgroundImageView != null) {

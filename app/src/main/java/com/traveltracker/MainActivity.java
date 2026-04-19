@@ -24,6 +24,8 @@ import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.navigation.NavigationView;
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.traveltracker.adapter.EntryAdapter;
 import com.traveltracker.database.DatabaseHelper;
 import com.traveltracker.database.TravelEntry;
@@ -93,55 +95,88 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        try {
+            setContentView(R.layout.activity_main);
 
-        dbHelper = new DatabaseHelper(this);
-        allEntries = new ArrayList<>();
-        filteredEntries = new ArrayList<>();
+            dbHelper = DatabaseHelper.getInstance(this);
+            allEntries = new ArrayList<>();
+            filteredEntries = new ArrayList<>();
 
-        initViews();
-        setupDrawer();
-        setupRecyclerView();
-        setupFilters();
-        applyBackgroundSettings();
-        loadEntries();
+            initViews();
+            setupDrawer();
+            setupRecyclerView();
+            setupFilters();
+            applyBackgroundSettings();
+            loadEntries();
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Error in onCreate", e);
+            Toast.makeText(this, "Critical error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private void applyBackgroundSettings() {
-        // Main Background
-        String path = dbHelper.getGlobalSetting("main_bg_path");
-        String opacityStr = dbHelper.getGlobalSetting("main_bg_opacity");
-        String scaleType = dbHelper.getGlobalSetting("main_bg_scale_type");
+        try {
+            // Main Background
+            String path = dbHelper.getGlobalSetting("main_bg_path");
+            String opacityStr = dbHelper.getGlobalSetting("main_bg_opacity");
+            String scaleTypeStr = dbHelper.getGlobalSetting("main_bg_scale_type");
 
-        float opacity = (opacityStr != null) ? Float.parseFloat(opacityStr) : 1.0f;
-        if (scaleType == null) scaleType = "CENTER_CROP";
+            float opacity = 1.0f;
+            try {
+                if (opacityStr != null) opacity = Float.parseFloat(opacityStr);
+            } catch (NumberFormatException ignored) {}
 
-        if (path != null) {
-            backgroundImageView.setImageURI(Uri.parse(path));
-            backgroundImageView.setAlpha(opacity);
-            backgroundImageView.setScaleType(android.widget.ImageView.ScaleType.valueOf(scaleType));
-            backgroundImageView.setVisibility(android.view.View.VISIBLE);
-        } else {
-            backgroundImageView.setVisibility(android.view.View.GONE);
-        }
+            android.widget.ImageView.ScaleType scaleType = android.widget.ImageView.ScaleType.CENTER_CROP;
+            try {
+                if (scaleTypeStr != null) scaleType = android.widget.ImageView.ScaleType.valueOf(scaleTypeStr);
+            } catch (IllegalArgumentException ignored) {}
 
-        // Toolbar Background
-        String tPath = dbHelper.getGlobalSetting("toolbar_bg_path");
-        String tOpacityStr = dbHelper.getGlobalSetting("toolbar_bg_opacity");
-        String tScaleType = dbHelper.getGlobalSetting("toolbar_bg_scale_type");
+            if (path != null && !path.isEmpty()) {
+                Glide.with(this)
+                        .load(Uri.parse(path))
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .error(android.R.drawable.ic_menu_report_image)
+                        .into(backgroundImageView);
+                backgroundImageView.setAlpha(opacity);
+                backgroundImageView.setScaleType(scaleType);
+                backgroundImageView.setVisibility(android.view.View.VISIBLE);
+            } else {
+                backgroundImageView.setVisibility(android.view.View.GONE);
+                Glide.with(this).clear(backgroundImageView);
+            }
 
-        float tOpacity = (tOpacityStr != null) ? Float.parseFloat(tOpacityStr) : 1.0f;
-        if (tScaleType == null) tScaleType = "CENTER_CROP";
+            // Toolbar Background
+            String tPath = dbHelper.getGlobalSetting("toolbar_bg_path");
+            String tOpacityStr = dbHelper.getGlobalSetting("toolbar_bg_opacity");
+            String tScaleTypeStr = dbHelper.getGlobalSetting("toolbar_bg_scale_type");
 
-        if (tPath != null) {
-            toolbarBackgroundImageView.setImageURI(Uri.parse(tPath));
-            toolbarBackgroundImageView.setAlpha(tOpacity);
-            toolbarBackgroundImageView.setScaleType(android.widget.ImageView.ScaleType.valueOf(tScaleType));
-            toolbarBackgroundImageView.setVisibility(android.view.View.VISIBLE);
-            toolbar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-        } else {
-            toolbarBackgroundImageView.setVisibility(android.view.View.GONE);
-            applyThemeSettings(); // Restore toolbar color
+            float tOpacity = 1.0f;
+            try {
+                if (tOpacityStr != null) tOpacity = Float.parseFloat(tOpacityStr);
+            } catch (NumberFormatException ignored) {}
+
+            android.widget.ImageView.ScaleType tScaleType = android.widget.ImageView.ScaleType.CENTER_CROP;
+            try {
+                if (tScaleTypeStr != null) tScaleType = android.widget.ImageView.ScaleType.valueOf(tScaleTypeStr);
+            } catch (IllegalArgumentException ignored) {}
+
+            if (tPath != null && !tPath.isEmpty()) {
+                Glide.with(this)
+                        .load(Uri.parse(tPath))
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .error(android.R.drawable.ic_menu_report_image)
+                        .into(toolbarBackgroundImageView);
+                toolbarBackgroundImageView.setAlpha(tOpacity);
+                toolbarBackgroundImageView.setScaleType(tScaleType);
+                toolbarBackgroundImageView.setVisibility(android.view.View.VISIBLE);
+                toolbar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+            } else {
+                toolbarBackgroundImageView.setVisibility(android.view.View.GONE);
+                Glide.with(this).clear(toolbarBackgroundImageView);
+                applyThemeSettings(); // Restore toolbar color
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -647,7 +682,7 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Database imported successfully. Restarting...", Toast.LENGTH_SHORT).show();
             
             // Reload data
-            dbHelper = new DatabaseHelper(this);
+            dbHelper = DatabaseHelper.getInstance(this);
             loadEntries();
         } catch (IOException e) {
             e.printStackTrace();

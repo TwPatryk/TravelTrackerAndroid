@@ -11,8 +11,10 @@ import java.util.List;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
 
+    private static DatabaseHelper instance;
+
     private static final String DATABASE_NAME = "travel_tracker.db";
-    private static final int DATABASE_VERSION = 5;
+    private static final int DATABASE_VERSION = 8;
 
     // Tabela główna
     private static final String TABLE_ENTRIES = "entries";
@@ -53,7 +55,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_PIN_LON = "longitude";
     private static final String COLUMN_PIN_ORDER = "pin_order";
 
-    public DatabaseHelper(Context context) {
+    public static synchronized DatabaseHelper getInstance(Context context) {
+        if (instance == null) {
+            instance = new DatabaseHelper(context.getApplicationContext());
+        }
+        return instance;
+    }
+
+    private DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
     }
 
@@ -115,15 +124,43 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     @Override
+    public void onOpen(SQLiteDatabase db) {
+        super.onOpen(db);
+        if (!db.isReadOnly()) {
+            db.execSQL("PRAGMA foreign_keys=ON;");
+        }
+    }
+
+    @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if (oldVersion < 5) {
-            db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_PATH + " TEXT");
-            db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_OPACITY + " REAL DEFAULT 1.0");
-            db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_SCALE_TYPE + " TEXT DEFAULT 'CENTER_CROP'");
+        if (oldVersion < 7) {
+            try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_ENTRY_ORDER + " INTEGER DEFAULT 0"); } catch (Exception ignored) {}
+            try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_PATH + " TEXT"); } catch (Exception ignored) {}
+            try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_OPACITY + " REAL DEFAULT 1.0"); } catch (Exception ignored) {}
+            try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_SCALE_TYPE + " TEXT DEFAULT 'CENTER_CROP'"); } catch (Exception ignored) {}
             
-            db.execSQL("CREATE TABLE " + TABLE_SETTINGS + " (" +
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_SETTINGS + " (" +
                     COLUMN_SETTING_KEY + " TEXT PRIMARY KEY, " +
                     COLUMN_SETTING_VALUE + " TEXT)");
+
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_TAGS + " (" +
+                    COLUMN_TAG_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_ENTRY_ID + " INTEGER, " +
+                    COLUMN_TAG_NAME + " TEXT, " +
+                    "FOREIGN KEY(" + COLUMN_ENTRY_ID + ") REFERENCES " + TABLE_ENTRIES + "(" + COLUMN_ID + ") ON DELETE CASCADE)");
+        }
+
+        if (oldVersion < 8) {
+            // Dodatkowe upewnienie się że tabele istnieją (naprawa błędu z wersji 7)
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_SETTINGS + " (" +
+                    COLUMN_SETTING_KEY + " TEXT PRIMARY KEY, " +
+                    COLUMN_SETTING_VALUE + " TEXT)");
+
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_TAGS + " (" +
+                    COLUMN_TAG_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_ENTRY_ID + " INTEGER, " +
+                    COLUMN_TAG_NAME + " TEXT, " +
+                    "FOREIGN KEY(" + COLUMN_ENTRY_ID + ") REFERENCES " + TABLE_ENTRIES + "(" + COLUMN_ID + ") ON DELETE CASCADE)");
         }
     }
 
@@ -133,9 +170,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_TITLE, title);
-        long id = db.insert(TABLE_ENTRIES, null, values);
-        db.close();
-        return id;
+        return db.insert(TABLE_ENTRIES, null, values);
     }
 
     public List<TravelEntry> getAllEntries() {
@@ -171,7 +206,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         cursor.close();
-        db.close();
         return entries;
     }
 
@@ -196,7 +230,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             entry.setTags(getTagsForEntry(id));
         }
         cursor.close();
-        db.close();
         return entry;
     }
 
@@ -204,15 +237,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_TITLE, title);
-        int result = db.update(TABLE_ENTRIES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
-        db.close();
-        return result;
+        return db.update(TABLE_ENTRIES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
     }
 
     public void deleteEntry(long id) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_ENTRIES, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
-        db.close();
     }
 
     public void updateEntryOrder(long id, int order) {
@@ -220,7 +250,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         ContentValues values = new ContentValues();
         values.put(COLUMN_ENTRY_ORDER, order);
         db.update(TABLE_ENTRIES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
-        db.close();
     }
 
     // ==================== METODY DLA NOTATEK ====================
@@ -231,9 +260,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_ENTRY_ID, entryId);
         values.put(COLUMN_NOTE_TEXT, noteText);
         values.put(COLUMN_NOTE_ORDER, order);
-        long id = db.insert(TABLE_NOTES, null, values);
-        db.close();
-        return id;
+        return db.insert(TABLE_NOTES, null, values);
     }
 
     public List<Note> getNotesForEntry(long entryId) {
@@ -254,7 +281,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         cursor.close();
-        db.close();
         return notes;
     }
 
@@ -263,19 +289,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         ContentValues values = new ContentValues();
         values.put(COLUMN_NOTE_TEXT, newText);
         db.update(TABLE_NOTES, values, COLUMN_NOTE_ID + " = ?", new String[]{String.valueOf(noteId)});
-        db.close();
     }
 
     public void deleteNote(long noteId) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_NOTES, COLUMN_NOTE_ID + " = ?", new String[]{String.valueOf(noteId)});
-        db.close();
     }
 
     public void deleteAllNotesForEntry(long entryId) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_NOTES, COLUMN_ENTRY_ID + " = ?", new String[]{String.valueOf(entryId)});
-        db.close();
     }
 
     // ==================== METODY DLA ZDJĘĆ ====================
@@ -286,9 +309,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_ENTRY_ID, entryId);
         values.put(COLUMN_PHOTO_PATH, photoPath);
         values.put(COLUMN_PHOTO_ORDER, order);
-        long id = db.insert(TABLE_PHOTOS, null, values);
-        db.close();
-        return id;
+        return db.insert(TABLE_PHOTOS, null, values);
     }
 
     public List<Photo> getPhotosForEntry(long entryId) {
@@ -309,7 +330,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         cursor.close();
-        db.close();
         return photos;
     }
 
@@ -326,7 +346,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cursor.close();
 
         db.delete(TABLE_PHOTOS, COLUMN_PHOTO_ID + " = ?", new String[]{String.valueOf(photoId)});
-        db.close();
     }
 
     public void deleteAllPhotosForEntry(long entryId) {
@@ -343,7 +362,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cursor.close();
 
         db.delete(TABLE_PHOTOS, COLUMN_ENTRY_ID + " = ?", new String[]{String.valueOf(entryId)});
-        db.close();
     }
 
     // ==================== METODY DLA PINEZEK ====================
@@ -356,9 +374,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_PIN_LAT, lat);
         values.put(COLUMN_PIN_LON, lon);
         values.put(COLUMN_PIN_ORDER, order);
-        long id = db.insert(TABLE_PINS, null, values);
-        db.close();
-        return id;
+        return db.insert(TABLE_PINS, null, values);
     }
 
     public List<MapPin> getMapPinsForEntry(long entryId) {
@@ -381,14 +397,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         cursor.close();
-        db.close();
         return pins;
     }
 
     public void deleteAllPinsForEntry(long entryId) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_PINS, COLUMN_ENTRY_ID + " = ?", new String[]{String.valueOf(entryId)});
-        db.close();
     }
 
     // ==================== METODY DLA TAGÓW ====================
@@ -399,7 +413,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_ENTRY_ID, entryId);
         values.put(COLUMN_TAG_NAME, tagName);
         db.insert(TABLE_TAGS, null, values);
-        db.close();
     }
 
     public List<String> getTagsForEntry(long entryId) {
@@ -413,7 +426,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         cursor.close();
-        db.close();
         return tags;
     }
 
@@ -428,7 +440,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         cursor.close();
-        db.close();
         return tags;
     }
 
@@ -439,7 +450,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_BG_OPACITY, opacity);
         values.put(COLUMN_BG_SCALE_TYPE, scaleType);
         db.update(TABLE_ENTRIES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
-        db.close();
     }
 
     public void setGlobalSetting(String key, String value) {
@@ -448,7 +458,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_SETTING_KEY, key);
         values.put(COLUMN_SETTING_VALUE, value);
         db.replace(TABLE_SETTINGS, null, values);
-        db.close();
     }
 
     public String getGlobalSetting(String key) {
@@ -459,13 +468,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             value = cursor.getString(0);
         }
         cursor.close();
-        db.close();
         return value;
     }
 
     public void deleteAllTagsForEntry(long entryId) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_TAGS, COLUMN_ENTRY_ID + " = ?", new String[]{String.valueOf(entryId)});
-        db.close();
     }
 }

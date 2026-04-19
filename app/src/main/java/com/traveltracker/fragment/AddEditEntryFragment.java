@@ -123,7 +123,7 @@ public class AddEditEntryFragment extends DialogFragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setStyle(DialogFragment.STYLE_NORMAL, android.R.style.Theme_Material_Light_NoActionBar_Fullscreen);
-        dbHelper = new DatabaseHelper(getContext());
+        dbHelper = DatabaseHelper.getInstance(getContext());
         if (getArguments() != null) {
             long entryId = getArguments().getLong(ARG_ENTRY_ID);
             currentEntry = dbHelper.getEntryById(entryId);
@@ -364,15 +364,24 @@ public class AddEditEntryFragment extends DialogFragment {
         
         String path = currentEntry.getBackgroundPath();
         float opacity = currentEntry.getBackgroundOpacity();
-        String scaleType = currentEntry.getBackgroundScaleType();
+        String scaleTypeStr = currentEntry.getBackgroundScaleType();
 
-        if (path != null) {
-            backgroundImageView.setImageURI(Uri.parse(path));
+        if (path != null && !path.isEmpty()) {
+            ImageView.ScaleType scaleType = ImageView.ScaleType.CENTER_CROP;
+            try {
+                if (scaleTypeStr != null) scaleType = ImageView.ScaleType.valueOf(scaleTypeStr);
+            } catch (IllegalArgumentException ignored) {}
+
+            Glide.with(this)
+                    .load(Uri.parse(path))
+                    .error(android.R.drawable.ic_menu_report_image)
+                    .into(backgroundImageView);
             backgroundImageView.setAlpha(opacity);
-            backgroundImageView.setScaleType(ImageView.ScaleType.valueOf(scaleType));
+            backgroundImageView.setScaleType(scaleType);
             backgroundImageView.setVisibility(View.VISIBLE);
         } else {
             backgroundImageView.setVisibility(View.GONE);
+            Glide.with(this).clear(backgroundImageView);
         }
     }
 

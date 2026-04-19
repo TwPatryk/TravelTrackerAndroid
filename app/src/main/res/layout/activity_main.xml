@@ -24,120 +24,120 @@
             android:layout_height="match_parent"
             android:orientation="vertical">
 
-        <!-- Górny pasek -->
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <ImageView
-                android:id="@+id/toolbar_background_image"
+            <!-- Górny pasek -->
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="?attr/actionBarSize"
-                android:scaleType="centerCrop"
-                android:importantForAccessibility="no"
-                android:visibility="gone"/>
-
-            <androidx.appcompat.widget.Toolbar
-                android:id="@+id/main_toolbar"
-                android:layout_width="match_parent"
-                android:layout_height="?attr/actionBarSize"
-                android:background="@color/primary"
-                android:elevation="4dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <ImageButton
-                    android:id="@+id/menu_button"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:src="@drawable/ic_menu"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:tint="@android:color/white"/>
+                android:layout_height="wrap_content">
 
                 <ImageView
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:src="@drawable/ic_compass"
-                    android:layout_marginEnd="8dp"
-                    android:tint="@android:color/white"/>
+                    android:id="@+id/toolbar_background_image"
+                    android:layout_width="match_parent"
+                    android:layout_height="?attr/actionBarSize"
+                    android:scaleType="centerCrop"
+                    android:importantForAccessibility="no"
+                    android:visibility="gone"/>
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Travel Tracker"
-                    android:textColor="@android:color/white"
-                    android:textSize="20sp"
-                    android:textStyle="bold"/>
+                <androidx.appcompat.widget.Toolbar
+                    android:id="@+id/main_toolbar"
+                    android:layout_width="match_parent"
+                    android:layout_height="?attr/actionBarSize"
+                    android:background="@color/primary"
+                    android:elevation="4dp">
 
-                <ImageButton
-                    android:id="@+id/filter_button"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:src="@drawable/ic_filter"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:tint="@android:color/white"/>
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
 
-            </LinearLayout>
-        </androidx.appcompat.widget.Toolbar>
-    </FrameLayout>
+                        <ImageButton
+                            android:id="@+id/menu_button"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:src="@drawable/ic_menu"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:tint="@android:color/white"/>
 
-        <!-- Filtry -->
-        <LinearLayout
-            android:id="@+id/filter_container"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="12dp"
-            android:background="#f5f5f5"
-            android:visibility="gone">
+                        <ImageView
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:src="@drawable/ic_compass"
+                            android:layout_marginEnd="8dp"
+                            android:tint="@android:color/white"/>
 
-            <HorizontalScrollView
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Travel Tracker"
+                            android:textColor="@android:color/white"
+                            android:textSize="20sp"
+                            android:textStyle="bold"/>
+
+                        <ImageButton
+                            android:id="@+id/filter_button"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:src="@drawable/ic_filter"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:tint="@android:color/white"/>
+
+                    </LinearLayout>
+                </androidx.appcompat.widget.Toolbar>
+            </FrameLayout>
+
+            <!-- Filtry -->
+            <LinearLayout
+                android:id="@+id/filter_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:scrollbars="none"
-                android:layout_marginBottom="8dp">
-
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/tag_chip_group"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:singleLine="true"
-                    app:singleSelection="false"/>
-            </HorizontalScrollView>
-
-            <EditText
-                android:id="@+id/search_input"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="Search by title..."
+                android:orientation="vertical"
                 android:padding="12dp"
-                android:background="@android:drawable/editbox_background"/>
+                android:background="#f5f5f5"
+                android:visibility="gone">
+
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:scrollbars="none"
+                    android:layout_marginBottom="8dp">
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/tag_chip_group"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:singleLine="true"
+                        app:singleSelection="false"/>
+                </HorizontalScrollView>
+
+                <EditText
+                    android:id="@+id/search_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Search by title..."
+                    android:padding="12dp"
+                    android:background="@android:drawable/editbox_background"/>
+            </LinearLayout>
+
+            <!-- Lista wpisów -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/entries_recycler_view"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:padding="8dp"/>
+
+            <!-- Floating Action Button -->
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fab_add_entry"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end|bottom"
+                android:layout_margin="16dp"
+                android:src="@drawable/ic_add"
+                app:backgroundTint="@color/primary"/>
+
         </LinearLayout>
-
-        <!-- Lista wpisów -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/entries_recycler_view"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:padding="8dp"/>
-
-        <!-- Floating Action Button -->
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab_add_entry"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end|bottom"
-            android:layout_margin="16dp"
-            android:src="@drawable/ic_add"
-            app:backgroundTint="@color/primary"/>
-
-    </LinearLayout>
     </FrameLayout>
 
     <!-- Sidebar (Navigation Drawer) -->

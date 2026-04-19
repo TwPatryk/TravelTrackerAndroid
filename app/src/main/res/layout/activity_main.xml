@@ -274,6 +274,15 @@
             android:layout_margin="8dp"
             android:paddingStart="16dp"
             style="@style/Widget.MaterialComponents.Button.TextButton"/>
+
+        <Button
+            android:id="@+id/btn_set_item_background"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Set Items Background"
+            android:layout_margin="8dp"
+            android:paddingStart="16dp"
+            style="@style/Widget.MaterialComponents.Button.TextButton"/>
     </LinearLayout>
 
 </androidx.drawerlayout.widget.DrawerLayout>

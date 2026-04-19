@@ -304,6 +304,19 @@ public class MainActivity extends AppCompatActivity {
             }
             getWindow().setStatusBarColor(statusBarColor);
 
+            // Item Style (Cards)
+            String iColorHex = dbHelper.getGlobalSetting("item_bg_color");
+            String iOpacityStr = dbHelper.getGlobalSetting("item_bg_opacity");
+            int iColor = safeParseColor(iColorHex, android.graphics.Color.WHITE);
+            float iOpacity = 1.0f;
+            try {
+                if (iOpacityStr != null) iOpacity = Float.parseFloat(iOpacityStr);
+            } catch (NumberFormatException ignored) {}
+
+            if (adapter != null) {
+                adapter.setItemStyle(iColor, iOpacity);
+            }
+
         } catch (Exception e) {
             android.util.Log.e("MainActivity", "Error in applyBackgroundSettings", e);
         }
@@ -327,6 +340,7 @@ public class MainActivity extends AppCompatActivity {
         android.widget.TextView tvTitle = dialogView.findViewById(R.id.dialog_title);
         if ("toolbar_bg_".equals(prefix)) tvTitle.setText("Toolbar Background");
         else if ("fab_bg_".equals(prefix)) tvTitle.setText("FAB Background");
+        else if ("item_bg_".equals(prefix)) tvTitle.setText("Items Style");
         else tvTitle.setText("Main Background");
 
         android.widget.SeekBar seekBar = dialogView.findViewById(R.id.seekbar_opacity);
@@ -487,6 +501,7 @@ public class MainActivity extends AppCompatActivity {
         Button btnSetBg = findViewById(R.id.btn_set_background);
         Button btnSetToolbarBg = findViewById(R.id.btn_set_toolbar_background);
         Button btnSetFabBg = findViewById(R.id.btn_set_fab_background);
+        Button btnSetItemBg = findViewById(R.id.btn_set_item_background);
         Button btnChangeTheme = findViewById(R.id.btn_change_theme);
 
         btnExport.setOnClickListener(v -> exportLauncher.launch("travel_tracker_backup.db"));
@@ -494,6 +509,7 @@ public class MainActivity extends AppCompatActivity {
         btnSetBg.setOnClickListener(v -> showBackgroundSettingsDialog("main_bg_"));
         btnSetToolbarBg.setOnClickListener(v -> showBackgroundSettingsDialog("toolbar_bg_"));
         btnSetFabBg.setOnClickListener(v -> showBackgroundSettingsDialog("fab_bg_"));
+        btnSetItemBg.setOnClickListener(v -> showBackgroundSettingsDialog("item_bg_"));
         btnChangeTheme.setOnClickListener(v -> showThemeChooserDialog());
 
         applyThemeSettings();

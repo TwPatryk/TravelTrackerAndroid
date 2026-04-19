@@ -21,6 +21,8 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
     private List<TravelEntry> entries;
     private OnEntryClickListener listener;
     private ItemTouchHelper itemTouchHelper;
+    private int itemColor = android.graphics.Color.WHITE;
+    private float itemOpacity = 1.0f;
 
     public interface OnEntryClickListener {
         void onEntryClick(TravelEntry entry);
@@ -34,6 +36,12 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
 
     public void setItemTouchHelper(ItemTouchHelper itemTouchHelper) {
         this.itemTouchHelper = itemTouchHelper;
+    }
+
+    public void setItemStyle(int color, float opacity) {
+        this.itemColor = color;
+        this.itemOpacity = opacity;
+        notifyDataSetChanged();
     }
 
     public void updateEntries(List<TravelEntry> newEntries) {
@@ -54,6 +62,23 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         TravelEntry entry = entries.get(position);
         holder.titleTextView.setText(entry.getTitle());
+
+        // Aplikuj styl kafelka
+        if (holder.itemView instanceof androidx.cardview.widget.CardView) {
+            androidx.cardview.widget.CardView cardView = (androidx.cardview.widget.CardView) holder.itemView;
+            
+            // Oblicz kolor z uwzględnieniem opacity (tylko dla tła)
+            int alpha = Math.round(itemOpacity * 255);
+            int colorWithAlpha = android.graphics.Color.argb(
+                    alpha,
+                    android.graphics.Color.red(itemColor),
+                    android.graphics.Color.green(itemColor),
+                    android.graphics.Color.blue(itemColor)
+            );
+            
+            cardView.setCardBackgroundColor(colorWithAlpha);
+            cardView.setAlpha(1.0f); // Upewnij się, że tekst i ikony są w pełni widoczne
+        }
 
         // Wyświetl liczbę notatek, zdjęć i pinezek
         int notesCount = entry.getNotes() != null ? entry.getNotes().size() : 0;

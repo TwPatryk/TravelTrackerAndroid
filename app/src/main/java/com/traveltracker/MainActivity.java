@@ -135,6 +135,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void applyBackgroundSettings() {
         try {
+            String themeColorHex = dbHelper.getGlobalSetting("theme_color");
+            int themeColor = safeParseColor(themeColorHex, androidx.core.content.ContextCompat.getColor(this, R.color.primary));
+
             // Main Background
             String path = dbHelper.getGlobalSetting("main_bg_path");
             String colorHex = dbHelper.getGlobalSetting("main_bg_color");
@@ -172,7 +175,7 @@ public class MainActivity extends AppCompatActivity {
                 if (mainBackgroundOverlay != null) {
                     mainBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
                     mainBackgroundOverlay.setAlpha(1.0f);
-                    mainBackgroundOverlay.setBackgroundColor(android.graphics.Color.parseColor(colorHex));
+                    mainBackgroundOverlay.setBackgroundColor(safeParseColor(colorHex, android.graphics.Color.WHITE));
                 }
             } else {
                 backgroundImageView.setVisibility(android.view.View.GONE);
@@ -215,21 +218,32 @@ public class MainActivity extends AppCompatActivity {
                 if (toolbarBackgroundOverlay != null) {
                     toolbarBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
                     toolbarBackgroundOverlay.setAlpha(1.0f);
-                    toolbarBackgroundOverlay.setBackgroundColor(android.graphics.Color.parseColor(tColorHex));
+                    toolbarBackgroundOverlay.setBackgroundColor(safeParseColor(tColorHex, themeColor));
                 }
                 if (toolbar != null) toolbar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
             } else {
                 toolbarBackgroundImageView.setVisibility(android.view.View.GONE);
                 if (toolbarBackgroundOverlay != null) toolbarBackgroundOverlay.setVisibility(android.view.View.GONE);
                 Glide.with(this).clear(toolbarBackgroundImageView);
-                applyThemeSettings(); 
+                if (toolbar != null) {
+                    toolbar.setBackgroundColor(themeColor);
+                    toolbar.setAlpha(1.0f);
+                }
             }
 
-            // FAB Background (independent)
+            // FAB Background Sync logic with Status Bar
             String fPath = dbHelper.getGlobalSetting("fab_bg_path");
             String fColorHex = dbHelper.getGlobalSetting("fab_bg_color");
             String fOpacityStr = dbHelper.getGlobalSetting("fab_bg_opacity");
             String fScaleTypeStr = dbHelper.getGlobalSetting("fab_bg_scale_type");
+
+            // If FAB background is not explicitly set, inherit from Toolbar/Status Bar area
+            if ((fPath == null || fPath.isEmpty()) && (fColorHex == null || fColorHex.isEmpty())) {
+                fPath = tPath;
+                fColorHex = tColorHex;
+                fOpacityStr = tOpacityStr;
+                fScaleTypeStr = tScaleTypeStr;
+            }
 
             float fOpacity = 1.0f;
             try {
@@ -241,7 +255,7 @@ public class MainActivity extends AppCompatActivity {
                 if (fScaleTypeStr != null) fScaleType = android.widget.ImageView.ScaleType.valueOf(fScaleTypeStr);
             } catch (IllegalArgumentException ignored) {}
 
-            int finalFabColor = 0;
+            int finalFabColor = themeColor;
 
             if (fPath != null && !fPath.isEmpty()) {
                 if (fabBackgroundImageView != null) {
@@ -260,11 +274,9 @@ public class MainActivity extends AppCompatActivity {
                 if (fab != null) {
                     fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
                 }
-                // When using image, we don't change status bar based on it easily, 
-                // but let's default to theme color for status bar if no specific color is set
             } else if (fColorHex != null && !fColorHex.isEmpty()) {
                 if (fabBackgroundImageView != null) fabBackgroundImageView.setVisibility(android.view.View.GONE);
-                finalFabColor = android.graphics.Color.parseColor(fColorHex);
+                finalFabColor = safeParseColor(fColorHex, themeColor);
                 if (fabBackgroundOverlay != null) {
                     fabBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
                     fabBackgroundOverlay.setAlpha(1.0f);
@@ -280,25 +292,33 @@ public class MainActivity extends AppCompatActivity {
                 }
                 if (fabBackgroundOverlay != null) fabBackgroundOverlay.setVisibility(android.view.View.GONE);
                 
-                String themeColorHex = dbHelper.getGlobalSetting("theme_color");
-                finalFabColor = (themeColorHex != null) ? android.graphics.Color.parseColor(themeColorHex) : getResources().getColor(R.color.primary);
                 if (fab != null) {
-                    fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(finalFabColor));
+                    fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(themeColor));
                 }
             }
 
-            // Status Bar Sync Logic
+            // Status Bar Sync Logic: Match Toolbar or FAB
             int statusBarColor;
             if (fColorHex != null && !fColorHex.isEmpty()) {
-                statusBarColor = android.graphics.Color.parseColor(fColorHex);
+                statusBarColor = safeParseColor(fColorHex, themeColor);
+            } else if (tColorHex != null && !tColorHex.isEmpty()) {
+                statusBarColor = safeParseColor(tColorHex, themeColor);
             } else {
-                String themeColorHex = dbHelper.getGlobalSetting("theme_color");
-                statusBarColor = (themeColorHex != null) ? android.graphics.Color.parseColor(themeColorHex) : getResources().getColor(R.color.primary);
+                statusBarColor = themeColor;
             }
             getWindow().setStatusBarColor(statusBarColor);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            android.util.Log.e("MainActivity", "Error in applyBackgroundSettings", e);
+        }
+    }
+
+    private int safeParseColor(String colorHex, int fallbackColor) {
+        if (colorHex == null || colorHex.isEmpty()) return fallbackColor;
+        try {
+            return android.graphics.Color.parseColor(colorHex);
+        } catch (Exception e) {
+            return fallbackColor;
         }
     }
 
@@ -405,7 +425,7 @@ public class MainActivity extends AppCompatActivity {
 
         final android.view.View colorPreview = new android.view.View(this);
         String currentColorHex = dbHelper.getGlobalSetting(prefix + "color");
-        int currentColor = (currentColorHex != null) ? android.graphics.Color.parseColor(currentColorHex) : 0xFFFF3D00;
+        int currentColor = safeParseColor(currentColorHex, 0xFFFF3D00);
         
         android.widget.LinearLayout.LayoutParams previewParams = new android.widget.LinearLayout.LayoutParams(
                 android.widget.LinearLayout.LayoutParams.MATCH_PARENT, (int) (60 * getResources().getDisplayMetrics().density));
@@ -521,7 +541,7 @@ public class MainActivity extends AppCompatActivity {
 
         final android.view.View colorPreview = new android.view.View(this);
         String currentColorHex = dbHelper.getGlobalSetting("theme_color");
-        int currentColor = (currentColorHex != null) ? android.graphics.Color.parseColor(currentColorHex) : 0xFFFF3D00;
+        int currentColor = safeParseColor(currentColorHex, 0xFFFF3D00);
         
         android.widget.LinearLayout.LayoutParams previewParams = new android.widget.LinearLayout.LayoutParams(
                 android.widget.LinearLayout.LayoutParams.MATCH_PARENT, (int) (60 * getResources().getDisplayMetrics().density));
@@ -581,43 +601,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applyThemeSettings() {
-        String tPath = dbHelper.getGlobalSetting("toolbar_bg_path");
-        String tColor = dbHelper.getGlobalSetting("toolbar_bg_color");
-        String fPath = dbHelper.getGlobalSetting("fab_bg_path");
-        String fColor = dbHelper.getGlobalSetting("fab_bg_color");
-        String themeColorHex = dbHelper.getGlobalSetting("theme_color");
-        
-        int color;
-        if (themeColorHex != null) {
-            color = android.graphics.Color.parseColor(themeColorHex);
-        } else {
-            color = getResources().getColor(R.color.primary);
-        }
-
-        if (toolbarBackgroundOverlay != null) {
-            toolbarBackgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
-        }
-        if (fabBackgroundOverlay != null) {
-            fabBackgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
-        }
-
-        // Toolbar
-        if ((tPath == null || tPath.isEmpty()) && (tColor == null || tColor.isEmpty())) {
-            if (toolbar != null) {
-                toolbar.setBackgroundColor(color);
-                toolbar.setAlpha(1.0f);
-            }
-        }
-
-        // FAB
-        if (fab != null) {
-            fab.setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE));
-            fab.setAlpha(1.0f);
-            if ((fPath == null || fPath.isEmpty()) && (fColor == null || fColor.isEmpty())) {
-                fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(color));
-                getWindow().setStatusBarColor(color);
-            }
-        }
+        applyBackgroundSettings();
     }
 
     private void setupDrawer() {

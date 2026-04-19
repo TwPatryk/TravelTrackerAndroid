@@ -59,6 +59,10 @@ public class MainActivity extends AppCompatActivity {
     private List<String> selectedTags = new ArrayList<>();
     private android.widget.ImageView backgroundImageView;
     private android.widget.ImageView toolbarBackgroundImageView;
+    private android.view.View mainBackgroundOverlay;
+    private android.view.View toolbarBackgroundOverlay;
+    private android.widget.ImageView fabBackgroundImageView;
+    private android.view.View fabBackgroundOverlay;
 
     private final ActivityResultLauncher<String> exportLauncher =
             registerForActivityResult(new ActivityResultContracts.CreateDocument("application/octet-stream"), uri -> {
@@ -88,6 +92,15 @@ public class MainActivity extends AppCompatActivity {
                 if (uri != null) {
                     getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     dbHelper.setGlobalSetting("toolbar_bg_path", uri.toString());
+                    applyBackgroundSettings();
+                }
+            });
+
+    private final ActivityResultLauncher<String[]> fabBackgroundPickerLauncher =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+                if (uri != null) {
+                    getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    dbHelper.setGlobalSetting("fab_bg_path", uri.toString());
                     applyBackgroundSettings();
                 }
             });
@@ -137,11 +150,18 @@ public class MainActivity extends AppCompatActivity {
                         .diskCacheStrategy(DiskCacheStrategy.ALL)
                         .error(android.R.drawable.ic_menu_report_image)
                         .into(backgroundImageView);
-                backgroundImageView.setAlpha(opacity);
-                backgroundImageView.setScaleType(scaleType);
+                
                 backgroundImageView.setVisibility(android.view.View.VISIBLE);
+                backgroundImageView.setScaleType(scaleType);
+                backgroundImageView.setAlpha(1.0f); // Always 1.0, we use overlay for fading
+                
+                if (mainBackgroundOverlay != null) {
+                    mainBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
+                    mainBackgroundOverlay.setAlpha(1.0f - opacity);
+                }
             } else {
                 backgroundImageView.setVisibility(android.view.View.GONE);
+                if (mainBackgroundOverlay != null) mainBackgroundOverlay.setVisibility(android.view.View.GONE);
                 Glide.with(this).clear(backgroundImageView);
             }
 
@@ -161,41 +181,97 @@ public class MainActivity extends AppCompatActivity {
             } catch (IllegalArgumentException ignored) {}
 
             if (tPath != null && !tPath.isEmpty()) {
+                // Toolbar
                 Glide.with(this)
                         .load(Uri.parse(tPath))
                         .diskCacheStrategy(DiskCacheStrategy.ALL)
-                        .error(android.R.drawable.ic_menu_report_image)
                         .into(toolbarBackgroundImageView);
-                toolbarBackgroundImageView.setAlpha(tOpacity);
-                toolbarBackgroundImageView.setScaleType(tScaleType);
                 toolbarBackgroundImageView.setVisibility(android.view.View.VISIBLE);
-                toolbar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+                toolbarBackgroundImageView.setScaleType(tScaleType);
+                toolbarBackgroundImageView.setAlpha(1.0f);
+                
+                if (toolbarBackgroundOverlay != null) {
+                    toolbarBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
+                    toolbarBackgroundOverlay.setAlpha(1.0f - tOpacity);
+                }
+                
+                // Keep elements opaque and white
+                if (toolbar != null) {
+                    toolbar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+                    toolbar.setAlpha(1.0f);
+                }
             } else {
                 toolbarBackgroundImageView.setVisibility(android.view.View.GONE);
+                if (toolbarBackgroundOverlay != null) toolbarBackgroundOverlay.setVisibility(android.view.View.GONE);
+                
                 Glide.with(this).clear(toolbarBackgroundImageView);
-                applyThemeSettings(); // Restore toolbar color
+                applyThemeSettings(); 
+            }
+
+            // FAB Background (independent)
+            String fPath = dbHelper.getGlobalSetting("fab_bg_path");
+            String fOpacityStr = dbHelper.getGlobalSetting("fab_bg_opacity");
+            String fScaleTypeStr = dbHelper.getGlobalSetting("fab_bg_scale_type");
+
+            float fOpacity = 1.0f;
+            try {
+                if (fOpacityStr != null) fOpacity = Float.parseFloat(fOpacityStr);
+            } catch (NumberFormatException ignored) {}
+
+            android.widget.ImageView.ScaleType fScaleType = android.widget.ImageView.ScaleType.CENTER_CROP;
+            try {
+                if (fScaleTypeStr != null) fScaleType = android.widget.ImageView.ScaleType.valueOf(fScaleTypeStr);
+            } catch (IllegalArgumentException ignored) {}
+
+            if (fPath != null && !fPath.isEmpty()) {
+                if (fabBackgroundImageView != null) {
+                    Glide.with(this)
+                            .load(Uri.parse(fPath))
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .into(fabBackgroundImageView);
+                    fabBackgroundImageView.setVisibility(android.view.View.VISIBLE);
+                    fabBackgroundImageView.setScaleType(fScaleType);
+                }
+                
+                if (fabBackgroundOverlay != null) {
+                    fabBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
+                    fabBackgroundOverlay.setAlpha(1.0f - fOpacity);
+                }
+                
+                if (fab != null) {
+                    fab.setAlpha(1.0f);
+                    fab.setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE));
+                    fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
+                }
+            } else {
+                if (fabBackgroundImageView != null) {
+                    fabBackgroundImageView.setVisibility(android.view.View.GONE);
+                    Glide.with(this).clear(fabBackgroundImageView);
+                }
+                if (fabBackgroundOverlay != null) fabBackgroundOverlay.setVisibility(android.view.View.GONE);
+                
+                // Reset to theme color if no background image
+                if (fab != null) {
+                    String colorHex = dbHelper.getGlobalSetting("theme_color");
+                    int color = (colorHex != null) ? android.graphics.Color.parseColor(colorHex) : getResources().getColor(R.color.primary);
+                    fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(color));
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void showBackgroundSettingsDialog(boolean forToolbar) {
+    private void showBackgroundSettingsDialog(final String prefix) {
         android.view.View dialogView = getLayoutInflater().inflate(R.layout.dialog_background_settings, null);
         androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setView(dialogView)
                 .create();
 
-        android.widget.TextView title = dialogView.findViewById(android.R.id.text1);
-        // The layout doesn't have an ID for the title, but we can find it or just let it be.
-        // Let's assume the user knows it's for toolbar if they clicked that button.
-
         android.widget.SeekBar seekBar = dialogView.findViewById(R.id.seekbar_opacity);
         android.widget.RadioGroup rgScaleType = dialogView.findViewById(R.id.rg_scale_type);
         Button btnSelect = dialogView.findViewById(R.id.btn_select_image);
         Button btnClear = dialogView.findViewById(R.id.btn_clear_bg);
-
-        String prefix = forToolbar ? "toolbar_bg_" : "main_bg_";
 
         String currentOpacity = dbHelper.getGlobalSetting(prefix + "opacity");
         seekBar.setProgress((int) ((currentOpacity != null ? Float.parseFloat(currentOpacity) : 1.0f) * 100));
@@ -206,8 +282,10 @@ public class MainActivity extends AppCompatActivity {
         else rgScaleType.check(R.id.rb_center_crop);
 
         btnSelect.setOnClickListener(v -> {
-            if (forToolbar) {
+            if ("toolbar_bg_".equals(prefix)) {
                 toolbarBackgroundPickerLauncher.launch(new String[]{"image/*"});
+            } else if ("fab_bg_".equals(prefix)) {
+                fabBackgroundPickerLauncher.launch(new String[]{"image/*"});
             } else {
                 backgroundPickerLauncher.launch(new String[]{"image/*"});
             }
@@ -242,6 +320,10 @@ public class MainActivity extends AppCompatActivity {
         tagChipGroup = findViewById(R.id.tag_chip_group);
         backgroundImageView = findViewById(R.id.main_background_image);
         toolbarBackgroundImageView = findViewById(R.id.toolbar_background_image);
+        mainBackgroundOverlay = findViewById(R.id.main_background_overlay);
+        toolbarBackgroundOverlay = findViewById(R.id.toolbar_background_overlay);
+        fabBackgroundImageView = findViewById(R.id.fab_background_image);
+        fabBackgroundOverlay = findViewById(R.id.fab_background_overlay);
         fab = findViewById(R.id.fab_add_entry);
         toolbar = findViewById(R.id.main_toolbar);
 
@@ -251,12 +333,14 @@ public class MainActivity extends AppCompatActivity {
         Button btnImport = findViewById(R.id.btn_import);
         Button btnSetBg = findViewById(R.id.btn_set_background);
         Button btnSetToolbarBg = findViewById(R.id.btn_set_toolbar_background);
+        Button btnSetFabBg = findViewById(R.id.btn_set_fab_background);
         Button btnChangeTheme = findViewById(R.id.btn_change_theme);
 
         btnExport.setOnClickListener(v -> exportLauncher.launch("travel_tracker_backup.db"));
         btnImport.setOnClickListener(v -> importLauncher.launch(new String[]{"application/octet-stream", "*/*"}));
-        btnSetBg.setOnClickListener(v -> showBackgroundSettingsDialog(false));
-        btnSetToolbarBg.setOnClickListener(v -> showBackgroundSettingsDialog(true));
+        btnSetBg.setOnClickListener(v -> showBackgroundSettingsDialog("main_bg_"));
+        btnSetToolbarBg.setOnClickListener(v -> showBackgroundSettingsDialog("toolbar_bg_"));
+        btnSetFabBg.setOnClickListener(v -> showBackgroundSettingsDialog("fab_bg_"));
         btnChangeTheme.setOnClickListener(v -> showThemeChooserDialog());
 
         applyThemeSettings();
@@ -361,11 +445,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void applyThemeSettings() {
         String path = dbHelper.getGlobalSetting("toolbar_bg_path");
-        if (path != null) {
-            // If toolbar has a background image, don't override with theme color
-            return;
-        }
-
         String colorHex = dbHelper.getGlobalSetting("theme_color");
         int color;
         if (colorHex != null) {
@@ -374,11 +453,28 @@ public class MainActivity extends AppCompatActivity {
             color = getResources().getColor(R.color.primary);
         }
 
-        if (toolbar != null) {
-            toolbar.setBackgroundColor(color);
+        if (toolbarBackgroundOverlay != null) {
+            toolbarBackgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
         }
+        if (fabBackgroundOverlay != null) {
+            fabBackgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
+        }
+
+        if (path != null && !path.isEmpty()) {
+            if (toolbar != null) toolbar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        } else {
+            if (toolbar != null) {
+                toolbar.setBackgroundColor(color);
+                toolbar.setAlpha(1.0f);
+            }
+        }
+
         if (fab != null) {
-            fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(color));
+            fab.setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE));
+            fab.setAlpha(1.0f);
+            if (path == null || path.isEmpty()) {
+                fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(color));
+            }
         }
     }
 

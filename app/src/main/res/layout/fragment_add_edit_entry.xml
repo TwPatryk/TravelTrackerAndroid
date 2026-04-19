@@ -3,13 +3,20 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Background Image -->
+    <!-- Background Image and Overlay -->
     <ImageView
         android:id="@+id/entry_background_image"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="centerCrop"
         android:importantForAccessibility="no"/>
+
+    <View
+        android:id="@+id/entry_background_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FFFFFF"
+        android:visibility="gone"/>
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"

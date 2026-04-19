@@ -11,13 +11,20 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- Background Image -->
+        <!-- Background Image and Overlay -->
         <ImageView
             android:id="@+id/main_background_image"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:scaleType="centerCrop"
             android:importantForAccessibility="no"/>
+
+        <View
+            android:id="@+id/main_background_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#FFFFFF"
+            android:visibility="gone"/>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -35,6 +42,13 @@
                     android:layout_height="?attr/actionBarSize"
                     android:scaleType="centerCrop"
                     android:importantForAccessibility="no"
+                    android:visibility="gone"/>
+
+                <View
+                    android:id="@+id/toolbar_background_overlay"
+                    android:layout_width="match_parent"
+                    android:layout_height="?attr/actionBarSize"
+                    android:background="#FFFFFF"
                     android:visibility="gone"/>
 
                 <androidx.appcompat.widget.Toolbar
@@ -56,16 +70,19 @@
                             android:layout_height="48dp"
                             android:src="@drawable/ic_menu"
                             android:background="?attr/selectableItemBackgroundBorderless"
-                            android:tint="@android:color/white"/>
+                            android:tint="@android:color/white"
+                            android:elevation="2dp"/>
 
                         <ImageView
                             android:layout_width="32dp"
                             android:layout_height="32dp"
                             android:src="@drawable/ic_compass"
                             android:layout_marginEnd="8dp"
-                            android:tint="@android:color/white"/>
+                            android:tint="@android:color/white"
+                            android:elevation="2dp"/>
 
                         <TextView
+                            android:id="@+id/toolbar_title"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
@@ -80,7 +97,8 @@
                             android:layout_height="48dp"
                             android:src="@drawable/ic_filter"
                             android:background="?attr/selectableItemBackgroundBorderless"
-                            android:tint="@android:color/white"/>
+                            android:tint="@android:color/white"
+                            android:elevation="2dp"/>
 
                     </LinearLayout>
                 </androidx.appcompat.widget.Toolbar>
@@ -127,15 +145,45 @@
                 android:layout_weight="1"
                 android:padding="8dp"/>
 
-            <!-- Floating Action Button -->
-            <com.google.android.material.floatingactionbutton.FloatingActionButton
-                android:id="@+id/fab_add_entry"
+            <!-- Floating Action Button with Synchronized Background -->
+            <FrameLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="end|bottom"
-                android:layout_margin="16dp"
-                android:src="@drawable/ic_add"
-                app:backgroundTint="@color/primary"/>
+                android:layout_margin="16dp">
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    app:cardCornerRadius="28dp"
+                    app:cardElevation="0dp"
+                    app:cardBackgroundColor="@android:color/transparent">
+
+                    <ImageView
+                        android:id="@+id/fab_background_image"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:visibility="gone"/>
+
+                    <View
+                        android:id="@+id/fab_background_overlay"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="#FFFFFF"
+                        android:visibility="gone"/>
+                </androidx.cardview.widget.CardView>
+
+                <com.google.android.material.floatingactionbutton.FloatingActionButton
+                    android:id="@+id/fab_add_entry"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/ic_add"
+                    app:tint="@android:color/white"
+                    app:backgroundTint="@color/primary"
+                    app:elevation="6dp"
+                    app:borderWidth="0dp"/>
+            </FrameLayout>
 
         </LinearLayout>
     </FrameLayout>
@@ -204,6 +252,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Set Toolbar Background"
+            android:layout_margin="8dp"
+            android:paddingStart="16dp"
+            style="@style/Widget.MaterialComponents.Button.TextButton"/>
+
+        <Button
+            android:id="@+id/btn_set_fab_background"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/set_fab_background"
             android:layout_margin="8dp"
             android:paddingStart="16dp"
             style="@style/Widget.MaterialComponents.Button.TextButton"/>

@@ -69,6 +69,7 @@ public class AddEditEntryFragment extends DialogFragment {
     private ItemsAdapter itemsAdapter;
     private ItemTouchHelper itemTouchHelper;
     private ImageView backgroundImageView;
+    private View backgroundOverlay;
 
     private List<EntryItem> itemsList = new ArrayList<>();
 
@@ -139,6 +140,7 @@ public class AddEditEntryFragment extends DialogFragment {
         tagsInput = view.findViewById(R.id.entry_tags_input);
         itemsRecyclerView = view.findViewById(R.id.items_recycler_view);
         backgroundImageView = view.findViewById(R.id.entry_background_image);
+        backgroundOverlay = view.findViewById(R.id.entry_background_overlay);
 
         itemsRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         itemsAdapter = new ItemsAdapter();
@@ -376,11 +378,18 @@ public class AddEditEntryFragment extends DialogFragment {
                     .load(Uri.parse(path))
                     .error(android.R.drawable.ic_menu_report_image)
                     .into(backgroundImageView);
-            backgroundImageView.setAlpha(opacity);
-            backgroundImageView.setScaleType(scaleType);
+            
             backgroundImageView.setVisibility(View.VISIBLE);
+            backgroundImageView.setAlpha(1.0f);
+            backgroundImageView.setScaleType(scaleType);
+
+            if (backgroundOverlay != null) {
+                backgroundOverlay.setVisibility(View.VISIBLE);
+                backgroundOverlay.setAlpha(1.0f - opacity);
+            }
         } else {
             backgroundImageView.setVisibility(View.GONE);
+            if (backgroundOverlay != null) backgroundOverlay.setVisibility(View.GONE);
             Glide.with(this).clear(backgroundImageView);
         }
     }

@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">TravelTracker</string>
     <string name="change_theme">Change Theme</string>
+    <string name="set_fab_background">Set FAB Background</string>
 </resources>

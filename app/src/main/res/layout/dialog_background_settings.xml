@@ -6,6 +6,7 @@
     android:padding="20dp">
 
     <TextView
+        android:id="@+id/dialog_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Background Settings"
@@ -18,6 +19,14 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Select Image"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
+
+    <Button
+        android:id="@+id/btn_select_color"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Select Color"
+        android:layout_marginTop="8dp"
         style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
 
     <TextView

@@ -153,11 +153,12 @@
                 android:layout_margin="16dp">
 
                 <androidx.cardview.widget.CardView
+                    android:id="@+id/fab_background_card"
                     android:layout_width="56dp"
                     android:layout_height="56dp"
                     app:cardCornerRadius="28dp"
                     app:cardElevation="0dp"
-                    app:cardBackgroundColor="@android:color/transparent">
+                    app:cardBackgroundColor="@android:color/white">
 
                     <ImageView
                         android:id="@+id/fab_background_image"

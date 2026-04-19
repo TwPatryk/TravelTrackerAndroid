@@ -11,6 +11,7 @@ public class TravelEntry {
     private List<MapPin> mapPins;
     private List<String> tags;
     private String backgroundPath;
+    private String backgroundColor;
     private float backgroundOpacity = 1.0f;
     private String backgroundScaleType = "CENTER_CROP";
 
@@ -38,6 +39,9 @@ public class TravelEntry {
 
     public String getBackgroundPath() { return backgroundPath; }
     public void setBackgroundPath(String backgroundPath) { this.backgroundPath = backgroundPath; }
+
+    public String getBackgroundColor() { return backgroundColor; }
+    public void setBackgroundColor(String backgroundColor) { this.backgroundColor = backgroundColor; }
 
     public float getBackgroundOpacity() { return backgroundOpacity; }
     public void setBackgroundOpacity(float backgroundOpacity) { this.backgroundOpacity = backgroundOpacity; }

@@ -365,6 +365,7 @@ public class AddEditEntryFragment extends DialogFragment {
         if (currentEntry == null || backgroundImageView == null) return;
         
         String path = currentEntry.getBackgroundPath();
+        String colorHex = currentEntry.getBackgroundColor();
         float opacity = currentEntry.getBackgroundOpacity();
         String scaleTypeStr = currentEntry.getBackgroundScaleType();
 
@@ -386,6 +387,18 @@ public class AddEditEntryFragment extends DialogFragment {
             if (backgroundOverlay != null) {
                 backgroundOverlay.setVisibility(View.VISIBLE);
                 backgroundOverlay.setAlpha(1.0f - opacity);
+                backgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
+            }
+        } else if (colorHex != null && !colorHex.isEmpty()) {
+            backgroundImageView.setVisibility(View.GONE);
+            if (backgroundOverlay != null) {
+                backgroundOverlay.setVisibility(View.VISIBLE);
+                backgroundOverlay.setAlpha(1.0f);
+                try {
+                    backgroundOverlay.setBackgroundColor(android.graphics.Color.parseColor(colorHex));
+                } catch (Exception e) {
+                    backgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
+                }
             }
         } else {
             backgroundImageView.setVisibility(View.GONE);
@@ -403,6 +416,7 @@ public class AddEditEntryFragment extends DialogFragment {
         android.widget.SeekBar seekBar = dialogView.findViewById(R.id.seekbar_opacity);
         android.widget.RadioGroup rgScaleType = dialogView.findViewById(R.id.rg_scale_type);
         Button btnSelect = dialogView.findViewById(R.id.btn_select_image);
+        Button btnColor = dialogView.findViewById(R.id.btn_select_color);
         Button btnClear = dialogView.findViewById(R.id.btn_clear_bg);
 
         seekBar.setProgress((int) (currentEntry.getBackgroundOpacity() * 100));
@@ -417,8 +431,24 @@ public class AddEditEntryFragment extends DialogFragment {
             dialog.dismiss();
         });
 
+        btnColor.setOnClickListener(v -> {
+            new com.skydoves.colorpickerview.ColorPickerDialog.Builder(requireContext())
+                    .setTitle("Pick Color")
+                    .setPreferenceName("entry_bg_color")
+                    .setPositiveButton("Select", (com.skydoves.colorpickerview.listeners.ColorEnvelopeListener) (envelope, fromUser) -> {
+                        currentEntry.setBackgroundPath(null);
+                        currentEntry.setBackgroundColor("#" + envelope.getHexCode());
+                        applyBackgroundSettings();
+                    })
+                    .setNegativeButton("Cancel", (dialogInterface, i) -> dialogInterface.dismiss())
+                    .attachAlphaSlideBar(true)
+                    .attachBrightnessSlideBar(true)
+                    .show();
+        });
+
         btnClear.setOnClickListener(v -> {
             currentEntry.setBackgroundPath(null);
+            currentEntry.setBackgroundColor(null);
             applyBackgroundSettings();
             dialog.dismiss();
         });
@@ -484,7 +514,7 @@ public class AddEditEntryFragment extends DialogFragment {
 
         if (currentEntry != null) {
             dbHelper.updateEntryBackground(entryId, currentEntry.getBackgroundPath(), 
-                currentEntry.getBackgroundOpacity(), currentEntry.getBackgroundScaleType());
+                currentEntry.getBackgroundColor(), currentEntry.getBackgroundOpacity(), currentEntry.getBackgroundScaleType());
         }
 
         if (onEntrySavedListener != null) {

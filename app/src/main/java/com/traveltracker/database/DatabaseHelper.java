@@ -14,7 +14,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static DatabaseHelper instance;
 
     private static final String DATABASE_NAME = "travel_tracker.db";
-    private static final int DATABASE_VERSION = 8;
+    private static final int DATABASE_VERSION = 9;
 
     // Tabela główna
     private static final String TABLE_ENTRIES = "entries";
@@ -23,6 +23,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_CREATED_AT = "created_at";
     private static final String COLUMN_ENTRY_ORDER = "entry_order";
     private static final String COLUMN_BG_PATH = "bg_path";
+    private static final String COLUMN_BG_COLOR = "bg_color";
     private static final String COLUMN_BG_OPACITY = "bg_opacity";
     private static final String COLUMN_BG_SCALE_TYPE = "bg_scale_type";
 
@@ -75,6 +76,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_CREATED_AT + " TEXT DEFAULT CURRENT_TIMESTAMP, " +
                 COLUMN_ENTRY_ORDER + " INTEGER DEFAULT 0, " +
                 COLUMN_BG_PATH + " TEXT, " +
+                COLUMN_BG_COLOR + " TEXT, " +
                 COLUMN_BG_OPACITY + " REAL DEFAULT 1.0, " +
                 COLUMN_BG_SCALE_TYPE + " TEXT DEFAULT 'CENTER_CROP')";
         db.execSQL(createEntriesTable);
@@ -151,7 +153,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
 
         if (oldVersion < 8) {
-            // Dodatkowe upewnienie się że tabele istnieją (naprawa błędu z wersji 7)
             db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_SETTINGS + " (" +
                     COLUMN_SETTING_KEY + " TEXT PRIMARY KEY, " +
                     COLUMN_SETTING_VALUE + " TEXT)");
@@ -161,6 +162,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_ENTRY_ID + " INTEGER, " +
                     COLUMN_TAG_NAME + " TEXT, " +
                     "FOREIGN KEY(" + COLUMN_ENTRY_ID + ") REFERENCES " + TABLE_ENTRIES + "(" + COLUMN_ID + ") ON DELETE CASCADE)");
+        }
+        
+        if (oldVersion < 9) {
+            try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_COLOR + " TEXT"); } catch (Exception ignored) {}
         }
     }
 
@@ -187,19 +192,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 entry.setTitle(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TITLE)));
                 entry.setCreatedAt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CREATED_AT)));
                 entry.setBackgroundPath(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_PATH)));
+                entry.setBackgroundColor(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_COLOR)));
                 entry.setBackgroundOpacity(cursor.getFloat(cursor.getColumnIndexOrThrow(COLUMN_BG_OPACITY)));
                 entry.setBackgroundScaleType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_SCALE_TYPE)));
 
-                // Pobierz notatki dla tego wpisu
                 entry.setNotes(getNotesForEntry(entry.getId()));
-
-                // Pobierz zdjęcia dla tego wpisu
                 entry.setPhotos(getPhotosForEntry(entry.getId()));
-
-                // Pobierz pinezki dla tego wpisu
                 entry.setMapPins(getMapPinsForEntry(entry.getId()));
-
-                // Pobierz tagi dla tego wpisu
                 entry.setTags(getTagsForEntry(entry.getId()));
 
                 entries.add(entry);
@@ -222,6 +221,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             entry.setTitle(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TITLE)));
             entry.setCreatedAt(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CREATED_AT)));
             entry.setBackgroundPath(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_PATH)));
+            entry.setBackgroundColor(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_COLOR)));
             entry.setBackgroundOpacity(cursor.getFloat(cursor.getColumnIndexOrThrow(COLUMN_BG_OPACITY)));
             entry.setBackgroundScaleType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_SCALE_TYPE)));
             entry.setNotes(getNotesForEntry(id));
@@ -335,22 +335,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public void deletePhoto(long photoId) {
         SQLiteDatabase db = this.getWritableDatabase();
-        // Najpierw pobierz ścieżkę pliku
         String query = "SELECT " + COLUMN_PHOTO_PATH + " FROM " + TABLE_PHOTOS + " WHERE " + COLUMN_PHOTO_ID + " = ?";
         Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(photoId)});
         if (cursor.moveToFirst()) {
             String path = cursor.getString(0);
-            // Usuń plik z dysku
             new java.io.File(path).delete();
         }
         cursor.close();
-
         db.delete(TABLE_PHOTOS, COLUMN_PHOTO_ID + " = ?", new String[]{String.valueOf(photoId)});
     }
 
     public void deleteAllPhotosForEntry(long entryId) {
         SQLiteDatabase db = this.getWritableDatabase();
-        // Najpierw pobierz wszystkie ścieżki
         String query = "SELECT " + COLUMN_PHOTO_PATH + " FROM " + TABLE_PHOTOS + " WHERE " + COLUMN_ENTRY_ID + " = ?";
         Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(entryId)});
         if (cursor.moveToFirst()) {
@@ -360,7 +356,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         cursor.close();
-
         db.delete(TABLE_PHOTOS, COLUMN_ENTRY_ID + " = ?", new String[]{String.valueOf(entryId)});
     }
 
@@ -443,10 +438,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return tags;
     }
 
-    public void updateEntryBackground(long id, String path, float opacity, String scaleType) {
+    public void updateEntryBackground(long id, String path, String color, float opacity, String scaleType) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_BG_PATH, path);
+        values.put(COLUMN_BG_COLOR, color);
         values.put(COLUMN_BG_OPACITY, opacity);
         values.put(COLUMN_BG_SCALE_TYPE, scaleType);
         db.update(TABLE_ENTRIES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});

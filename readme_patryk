@@ -1,0 +1,84 @@
+import  / export
+
+Jak to działa:
+•
+Otwórz lewy sidebar.
+•
+Na dole zobaczysz przyciski Export DB i Import DB.
+•
+Przy eksporcie wybierz miejsce zapisu.
+•
+Przy imporcie wybierz wcześniej wyeksportowany plik. Aplikacja automatycznie załaduje nowe dane.
+Uwaga: Pamiętaj, że ta funkcja kopiuje samą bazę danych (teksty, współrzędne, ścieżki). Jeśli chcesz przenieść zdjęcia na inny telefon, musiałby
+
+
+
+Tak, wszystkie pliki graficzne są zapisywane w jednym folderze w pamięci wewnętrznej aplikacji.
+Zgodnie z kodem w AddEditEntryFragment.java (metoda saveImageToInternalStorage):
+1.
+Folder: Pliki trafiają do katalogu zwróconego przez requireContext().getFilesDir().
+2.
+Ścieżka na urządzeniu: Zazwyczaj jest to: /data/data/com.traveltracker/files/
+3.
+Nazewnictwo: Pliki mają nazwy zaczynające się od IMG_ (np. IMG_1715432100.jpg).
+Podsumowując: Wszystkie zdjęcia, które dodajesz do swoich wpisów, znajdują się w tym samym folderze files. Jeśli chciałbyś je przenieść na inny telefon razem z bazą danych, musiałbyś skopiować zawartość tego właśnie folderu.
+Warto zauważyć, że w bazie danych w tabeli photos przechowywana jest pełna ścieżka (Absolute Path) do każdego z tych plików, więc przy ręcznym przenoszeniu na inne urządzenie ścieżki muszą się zgadzać, aby aplikacja mogła je poprawnie wyświetlić (lub należałoby je zaktualizować w bazie).
+
+--------------------------------------------------------------------------------------------
+
+CELE
+
+1.
+Ukrywanie domyślne: Wszystkie wpisy oznaczone tagiem "do zwiedzenia" są automatycznie ukrywane przy uruchomieniu aplikacji oraz podczas zwykłego wyszukiwania tekstem.
+2.
+Aktywacja filtrem: Wpisy te pojawią się na liście tylko wtedy, gdy klikniesz przycisk tagu "do zwiedzenia" w sekcji filtrów.
+3.
+Kombinacje: Jeśli zaznaczysz "do zwiedzenia" oraz inny tag (np. "Góry"), zobaczysz tylko te miejsca, które planujesz odwiedzić w górach.
+
+--------------------------------------------------------------------------------------------
+
+TAPETY
+
+1.
+Baza danych: Zaktualizowałem strukturę do wersji 5, dodając kolumny na ścieżkę tła, przenikanie (opacity) i sposób skalowania. Dodałem też tabelę ustawień globalnych.
+2.
+Ekran główny:
+◦
+W wysuwanym menu (sidebar) na samym dole znajdziesz przycisk "Set Background".
+◦
+Możesz tam wybrać zdjęcie z galerii, ustawić jego przezroczystość oraz tryb dopasowania (Wypełnienie, Dopasowanie, Rozciągnięcie).
+
+3.
+Wpisy:
+◦
+W edycji każdego wpisu na samym dole znajduje się przycisk "Change Background Settings".
+◦
+Ustawienia działają tak samo jak na ekranie głównym, ale są unikalne dla każdego miejsca.
+4.
+UI: Zdjęcia tła znajdują się pod całą zawartością, więc teksty i notatki pozostają czytelne (szczególnie jeśli ustawisz niższe Opacity).
+Ważne: Przy pierwszym wyborze zdjęcia na nowszych wersjach Androida, aplikacja poprosi o uprawnienia do plików (zastosowałem trwałe uprawnienia URI, więc tło nie zniknie po restarcie aplikacji).
+
+
+--------------------------------------------------------------------------------------------
+
+TŁO DO PANELU GORNEGO
+
+1.
+Layout (activity_main.xml):
+◦
+Toolbar został owinięty w FrameLayout, aby umożliwić umieszczenie ImageView (tła) pod nim.
+◦
+Dodano przycisk "Set Toolbar Background" w lewym panelu bocznym (Navigation Drawer).
+2.
+Kod (MainActivity.java):
+◦
+Zaktualizowano metodę applyBackgroundSettings, aby obsługiwała zarówno tło główne, jak i tło paska narzędzi.
+◦
+Zmodyfikowano dialog ustawień, aby był uniwersalny (obsługuje teraz oba typy tła).
+◦
+Jeśli tło paska jest ustawione, kolor tematu jest tymczasowo zastępowany przez obraz (przezroczystość toolbara jest ustawiana na TRANSPARENT).
+◦
+Dodano obsługę zapisywania i odczytywania nowych ustawień (toolbar_bg_path, toolbar_bg_opacity, toolbar_bg_scale_type) z bazy danych/ustawień globalnych.
+Teraz w lewym panelu znajdziesz dwa oddzielne przyciski: jeden do tła głównego, a drugi do tła górnego paska. Każdy z nich pozwala na wybór obrazu, ustawienie jego przezroczystości oraz trybu skalowania.
+
+

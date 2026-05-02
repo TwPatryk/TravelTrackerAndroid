@@ -356,7 +356,18 @@ public class AddEditEntryFragment extends DialogFragment {
         dialog.setContentView(R.layout.dialog_full_screen_image);
         ImageView fullScreenImage = dialog.findViewById(R.id.full_screen_image);
         ImageButton btnClose = dialog.findViewById(R.id.btn_close_full_screen);
-        Glide.with(this).load(path).into(fullScreenImage);
+        
+        File imgFile = new File(path);
+        if (imgFile.exists()) {
+            Glide.with(this)
+                    .load(imgFile)
+                    .into(fullScreenImage);
+        } else {
+            Glide.with(this)
+                    .load(path)
+                    .into(fullScreenImage);
+        }
+
         btnClose.setOnClickListener(v -> dialog.dismiss());
         dialog.show();
     }

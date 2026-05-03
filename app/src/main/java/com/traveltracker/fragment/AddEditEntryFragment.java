@@ -290,6 +290,7 @@ public class AddEditEntryFragment extends DialogFragment {
     private void applyThemeToUI(View view) {
         int themeColor = getThemeColor();
         android.content.res.ColorStateList themeTint = android.content.res.ColorStateList.valueOf(themeColor);
+        android.content.res.ColorStateList whiteTint = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE);
 
         com.google.android.material.button.MaterialButton btnAddNote = view.findViewById(R.id.btn_add_note);
         com.google.android.material.button.MaterialButton btnAddPhoto = view.findViewById(R.id.btn_add_photo);
@@ -299,32 +300,33 @@ public class AddEditEntryFragment extends DialogFragment {
         com.google.android.material.button.MaterialButton btnEditBg = view.findViewById(R.id.btn_edit_background);
 
         if (btnAddNote != null) {
-            btnAddNote.setStrokeColor(themeTint);
-            btnAddNote.setTextColor(themeTint);
-            btnAddNote.setIconTint(themeTint);
+            btnAddNote.setBackgroundTintList(themeTint);
+            btnAddNote.setTextColor(whiteTint);
+            btnAddNote.setIconTint(whiteTint);
         }
         if (btnAddPhoto != null) {
-            btnAddPhoto.setStrokeColor(themeTint);
-            btnAddPhoto.setTextColor(themeTint);
-            btnAddPhoto.setIconTint(themeTint);
+            btnAddPhoto.setBackgroundTintList(themeTint);
+            btnAddPhoto.setTextColor(whiteTint);
+            btnAddPhoto.setIconTint(whiteTint);
         }
         if (btnAddPin != null) {
-            btnAddPin.setStrokeColor(themeTint);
-            btnAddPin.setTextColor(themeTint);
-            btnAddPin.setIconTint(themeTint);
+            btnAddPin.setBackgroundTintList(themeTint);
+            btnAddPin.setTextColor(whiteTint);
+            btnAddPin.setIconTint(whiteTint);
         }
         if (btnAddTrack != null) {
-            btnAddTrack.setStrokeColor(themeTint);
-            btnAddTrack.setTextColor(themeTint);
-            btnAddTrack.setIconTint(themeTint);
+            btnAddTrack.setBackgroundTintList(themeTint);
+            btnAddTrack.setTextColor(whiteTint);
+            btnAddTrack.setIconTint(whiteTint);
         }
         if (btnSave != null) {
             btnSave.setBackgroundTintList(themeTint);
+            btnSave.setTextColor(android.graphics.Color.WHITE);
         }
         if (btnEditBg != null) {
-            btnEditBg.setStrokeColor(themeTint);
-            btnEditBg.setTextColor(themeTint);
-            btnEditBg.setIconTint(themeTint);
+            btnEditBg.setBackgroundTintList(themeTint);
+            btnEditBg.setTextColor(whiteTint);
+            btnEditBg.setIconTint(whiteTint);
         }
     }
 
@@ -507,19 +509,23 @@ public class AddEditEntryFragment extends DialogFragment {
         String scaleTypeStr = currentEntry.getBackgroundScaleType();
 
         if (path != null && !path.isEmpty()) {
-            ImageView.ScaleType scaleType = ImageView.ScaleType.CENTER_CROP;
-            try {
-                if (scaleTypeStr != null) scaleType = ImageView.ScaleType.valueOf(scaleTypeStr);
-            } catch (IllegalArgumentException ignored) {}
-
             Glide.with(this)
                     .load(Uri.parse(path))
                     .error(android.R.drawable.ic_menu_report_image)
+                    .centerCrop() // Default scaling if none matches perfectly or as a base
                     .into(backgroundImageView);
             
             backgroundImageView.setVisibility(View.VISIBLE);
             backgroundImageView.setAlpha(1.0f);
-            backgroundImageView.setScaleType(scaleType);
+            
+            // Set scale type AFTER load to ensure it's applied correctly
+            if ("FIT_CENTER".equals(scaleTypeStr)) {
+                backgroundImageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            } else if ("FIT_XY".equals(scaleTypeStr)) {
+                backgroundImageView.setScaleType(ImageView.ScaleType.FIT_XY);
+            } else {
+                backgroundImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            }
 
             if (backgroundOverlay != null) {
                 backgroundOverlay.setVisibility(View.VISIBLE);

@@ -70,7 +70,6 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_add_note"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -80,11 +79,12 @@
                 app:icon="@drawable/ic_add"
                 app:iconPadding="4dp"
                 app:iconSize="16dp"
-                android:layout_marginEnd="4dp"/>
+                android:layout_marginEnd="4dp"
+                android:textColor="@android:color/white"
+                app:iconTint="@android:color/white"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_add_photo"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -94,11 +94,12 @@
                 app:icon="@drawable/ic_add"
                 app:iconPadding="4dp"
                 app:iconSize="16dp"
-                android:layout_marginEnd="4dp"/>
+                android:layout_marginEnd="4dp"
+                android:textColor="@android:color/white"
+                app:iconTint="@android:color/white"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_add_pin"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -108,11 +109,12 @@
                 app:icon="@drawable/ic_add"
                 app:iconPadding="4dp"
                 app:iconSize="16dp"
-                android:layout_marginEnd="4dp"/>
+                android:layout_marginEnd="4dp"
+                android:textColor="@android:color/white"
+                app:iconTint="@android:color/white"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_add_track"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -121,7 +123,9 @@
                 android:padding="4dp"
                 app:icon="@drawable/ic_add"
                 app:iconPadding="4dp"
-                app:iconSize="16dp"/>
+                app:iconSize="16dp"
+                android:textColor="@android:color/white"
+                app:iconTint="@android:color/white"/>
         </LinearLayout>
 
         <!-- Przyciski -->
@@ -137,7 +141,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Save"
-                android:backgroundTint="@color/primary_dark"
+                android:textColor="@android:color/white"
                 android:layout_marginEnd="8dp"/>
 
             <Button
@@ -147,17 +151,19 @@
                 android:layout_weight="1"
                 android:text="Cancel"
                 android:backgroundTint="@color/gray"
+                android:textColor="@android:color/white"
                 android:layout_marginStart="8dp"/>
 
         </LinearLayout>
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_edit_background"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Change Background Settings"
             android:layout_marginTop="16dp"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
+            android:textColor="@android:color/white"
+            app:iconTint="@android:color/white"/>
 
     </LinearLayout>
 

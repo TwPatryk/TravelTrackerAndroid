@@ -19,6 +19,9 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
@@ -121,6 +124,12 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         android.util.Log.d("MainActivity", "=== APP STARTING ===");
         super.onCreate(savedInstanceState);
+        
+        // Enable Edge-to-Edge
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(android.graphics.Color.TRANSPARENT);
+
         try {
             setContentView(R.layout.activity_main);
             
@@ -132,6 +141,26 @@ public class MainActivity extends AppCompatActivity {
             setupDrawer();
             setupRecyclerView();
             setupFilters();
+
+            // Handle window insets for edge-to-edge
+            ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.drawer_layout), (v, insets) -> {
+                androidx.core.graphics.Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                
+                // Pad the main content container to avoid overlapping with status bar
+                android.view.View mainContent = findViewById(R.id.main_toolbar).getParent() instanceof android.view.ViewGroup ? (android.view.View)findViewById(R.id.main_toolbar).getParent() : null;
+                if (mainContent != null) {
+                    mainContent.setPadding(0, systemBars.top, 0, 0);
+                }
+                
+                // Add bottom padding to recycler view for navigation bar
+                if (recyclerView != null) {
+                    recyclerView.setPadding(recyclerView.getPaddingLeft(), recyclerView.getPaddingTop(), 
+                                           recyclerView.getPaddingRight(), systemBars.bottom + (int)(8 * getResources().getDisplayMetrics().density));
+                    recyclerView.setClipToPadding(false);
+                }
+                
+                return insets;
+            });
             
             // Start loading data in background to prevent ANR on Xiaomi 13T
             new Thread(() -> {
@@ -146,9 +175,10 @@ public class MainActivity extends AppCompatActivity {
     private void loadInitialData() {
         // 1. Load background settings first (heavy DB work)
         final java.util.Map<String, String> settings = new java.util.HashMap<>();
-        String[] keys = {"theme_color", "main_bg_path", "main_bg_color", "main_bg_opacity", 
-                         "toolbar_bg_path", "toolbar_bg_color", "toolbar_bg_opacity", 
-                         "fab_bg_path", "fab_bg_color", "fab_bg_opacity"};
+        String[] keys = {"theme_color", "main_bg_path", "main_bg_color", "main_bg_opacity", "main_bg_scale_type",
+                         "toolbar_bg_path", "toolbar_bg_color", "toolbar_bg_opacity", "toolbar_bg_scale_type",
+                         "fab_bg_path", "fab_bg_color", "fab_bg_opacity", "fab_bg_scale_type",
+                         "item_bg_color", "item_bg_opacity"};
         for (String key : keys) {
             settings.put(key, dbHelper.getGlobalSetting(key));
         }
@@ -177,7 +207,6 @@ public class MainActivity extends AppCompatActivity {
             com.bumptech.glide.request.RequestOptions bgOptions = new com.bumptech.glide.request.RequestOptions()
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
                     .override(800)
-                    .centerCrop()
                     .downsample(com.bumptech.glide.load.resource.bitmap.DownsampleStrategy.AT_MOST)
                     .error(android.R.drawable.ic_menu_report_image);
 
@@ -185,6 +214,7 @@ public class MainActivity extends AppCompatActivity {
             String path = settings.get("main_bg_path");
             String colorHex = settings.get("main_bg_color");
             String opacityStr = settings.get("main_bg_opacity");
+            String scaleTypeStr = settings.get("main_bg_scale_type");
 
             if (path != null && !path.isEmpty()) {
                 Uri uri = Uri.parse(path);
@@ -194,6 +224,7 @@ public class MainActivity extends AppCompatActivity {
 
                 Glide.with(this).load(uri).apply(bgOptions).into(backgroundImageView);
                 backgroundImageView.setVisibility(android.view.View.VISIBLE);
+                backgroundImageView.setScaleType(getScaleType(scaleTypeStr));
                 
                 if (mainBackgroundOverlay != null) {
                     mainBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
@@ -218,6 +249,7 @@ public class MainActivity extends AppCompatActivity {
             // 2. Toolbar & Status Bar
             String tPath = settings.get("toolbar_bg_path");
             String tColorHex = settings.get("toolbar_bg_color");
+            String tScaleTypeStr = settings.get("toolbar_bg_scale_type");
             int tColor = (tColorHex != null && !tColorHex.isEmpty()) ? safeParseColor(tColorHex, themeColor) : themeColor;
             
             getWindow().setStatusBarColor(tColor);
@@ -226,6 +258,7 @@ public class MainActivity extends AppCompatActivity {
             if (tPath != null && !tPath.isEmpty()) {
                 Glide.with(this).load(Uri.parse(tPath)).apply(bgOptions).into(toolbarBackgroundImageView);
                 toolbarBackgroundImageView.setVisibility(android.view.View.VISIBLE);
+                toolbarBackgroundImageView.setScaleType(getScaleType(tScaleTypeStr));
                 if (toolbarBackgroundOverlay != null) {
                     toolbarBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
                     toolbarBackgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
@@ -249,9 +282,11 @@ public class MainActivity extends AppCompatActivity {
             if (fab != null) fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(fColor));
 
             String fPath = settings.get("fab_bg_path");
+            String fScaleTypeStr = settings.get("fab_bg_scale_type");
             if (fPath != null && !fPath.isEmpty()) {
                 Glide.with(this).load(Uri.parse(fPath)).apply(bgOptions).into(fabBackgroundImageView);
                 fabBackgroundImageView.setVisibility(android.view.View.VISIBLE);
+                fabBackgroundImageView.setScaleType(getScaleType(fScaleTypeStr));
                 if (fabBackgroundOverlay != null) {
                     fabBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
                     float fOpacity = 1.0f;
@@ -267,6 +302,18 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
+            // 4. Items Style
+            String iColorHex = settings.get("item_bg_color");
+            String iOpacityStr = settings.get("item_bg_opacity");
+            android.util.Log.d("MainActivity", "Loading items style: color=" + iColorHex + ", opacity=" + iOpacityStr);
+
+            int iColor = (iColorHex != null && !iColorHex.isEmpty()) ? safeParseColor(iColorHex, android.graphics.Color.WHITE) : android.graphics.Color.WHITE;
+            float iOpacity = 1.0f;
+            try { if (iOpacityStr != null) iOpacity = Float.parseFloat(iOpacityStr); } catch (Exception ignored) {}
+            if (adapter != null) {
+                adapter.setItemStyle(iColor, iOpacity);
+            }
+
         } catch (Exception e) {
             android.util.Log.e("MainActivity", "Error applying background settings", e);
         }
@@ -275,14 +322,21 @@ public class MainActivity extends AppCompatActivity {
     private void applyBackgroundSettings() {
         new Thread(() -> {
             final java.util.Map<String, String> settings = new java.util.HashMap<>();
-            String[] keys = {"theme_color", "main_bg_path", "main_bg_color", "main_bg_opacity", 
-                             "toolbar_bg_path", "toolbar_bg_color", "toolbar_bg_opacity", 
-                             "fab_bg_path", "fab_bg_color", "fab_bg_opacity"};
+            String[] keys = {"theme_color", "main_bg_path", "main_bg_color", "main_bg_opacity", "main_bg_scale_type",
+                             "toolbar_bg_path", "toolbar_bg_color", "toolbar_bg_opacity", "toolbar_bg_scale_type",
+                             "fab_bg_path", "fab_bg_color", "fab_bg_opacity", "fab_bg_scale_type",
+                             "item_bg_color", "item_bg_opacity"};
             for (String key : keys) {
                 settings.put(key, dbHelper.getGlobalSetting(key));
             }
             runOnUiThread(() -> applyBackgroundSettingsFromMap(settings));
         }).start();
+    }
+
+    private android.widget.ImageView.ScaleType getScaleType(String scaleTypeStr) {
+        if ("FIT_CENTER".equals(scaleTypeStr)) return android.widget.ImageView.ScaleType.FIT_CENTER;
+        if ("FIT_XY".equals(scaleTypeStr)) return android.widget.ImageView.ScaleType.FIT_XY;
+        return android.widget.ImageView.ScaleType.CENTER_CROP;
     }
 
     private int safeParseColor(String colorHex, int fallbackColor) {

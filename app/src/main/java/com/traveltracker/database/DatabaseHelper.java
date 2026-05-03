@@ -14,7 +14,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static DatabaseHelper instance;
 
     private static final String DATABASE_NAME = "travel_tracker.db";
-    private static final int DATABASE_VERSION = 9;
+    private static final int DATABASE_VERSION = 10;
 
     // Tabela główna
     private static final String TABLE_ENTRIES = "entries";
@@ -55,6 +55,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_PIN_LAT = "latitude";
     private static final String COLUMN_PIN_LON = "longitude";
     private static final String COLUMN_PIN_ORDER = "pin_order";
+
+    // Tabela tras (tracków)
+    private static final String TABLE_ROUTE_TRACKS = "route_tracks";
+    private static final String COLUMN_TRACK_ID = "id";
+    private static final String COLUMN_TRACK_NAME = "name";
+    private static final String COLUMN_TRACK_FILE_PATH = "file_path";
+    private static final String COLUMN_TRACK_ORDER = "track_order";
 
     public static synchronized DatabaseHelper getInstance(Context context) {
         if (instance == null) {
@@ -123,6 +130,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_TAG_NAME + " TEXT, " +
                 "FOREIGN KEY(" + COLUMN_ENTRY_ID + ") REFERENCES " + TABLE_ENTRIES + "(" + COLUMN_ID + ") ON DELETE CASCADE)";
         db.execSQL(createTagsTable);
+
+        // Tabela tras
+        String createRouteTracksTable = "CREATE TABLE " + TABLE_ROUTE_TRACKS + " (" +
+                COLUMN_TRACK_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                COLUMN_ENTRY_ID + " INTEGER, " +
+                COLUMN_TRACK_NAME + " TEXT, " +
+                COLUMN_TRACK_FILE_PATH + " TEXT, " +
+                COLUMN_TRACK_ORDER + " INTEGER, " +
+                "FOREIGN KEY(" + COLUMN_ENTRY_ID + ") REFERENCES " + TABLE_ENTRIES + "(" + COLUMN_ID + ") ON DELETE CASCADE)";
+        db.execSQL(createRouteTracksTable);
     }
 
     @Override
@@ -164,8 +181,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     "FOREIGN KEY(" + COLUMN_ENTRY_ID + ") REFERENCES " + TABLE_ENTRIES + "(" + COLUMN_ID + ") ON DELETE CASCADE)");
         }
         
-        if (oldVersion < 9) {
-            try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_COLOR + " TEXT"); } catch (Exception ignored) {}
+        if (oldVersion < 10) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_ROUTE_TRACKS + " (" +
+                    COLUMN_TRACK_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_ENTRY_ID + " INTEGER, " +
+                    COLUMN_TRACK_NAME + " TEXT, " +
+                    COLUMN_TRACK_FILE_PATH + " TEXT, " +
+                    COLUMN_TRACK_ORDER + " INTEGER, " +
+                    "FOREIGN KEY(" + COLUMN_ENTRY_ID + ") REFERENCES " + TABLE_ENTRIES + "(" + COLUMN_ID + ") ON DELETE CASCADE)");
         }
     }
 
@@ -199,6 +222,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 entry.setNotes(getNotesForEntry(entry.getId()));
                 entry.setPhotos(getPhotosForEntry(entry.getId()));
                 entry.setMapPins(getMapPinsForEntry(entry.getId()));
+                entry.setRouteTracks(getRouteTracksForEntry(entry.getId()));
                 entry.setTags(getTagsForEntry(entry.getId()));
 
                 entries.add(entry);
@@ -227,6 +251,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             entry.setNotes(getNotesForEntry(id));
             entry.setPhotos(getPhotosForEntry(id));
             entry.setMapPins(getMapPinsForEntry(id));
+            entry.setRouteTracks(getRouteTracksForEntry(id));
             entry.setTags(getTagsForEntry(id));
         }
         cursor.close();
@@ -470,5 +495,44 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public void deleteAllTagsForEntry(long entryId) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_TAGS, COLUMN_ENTRY_ID + " = ?", new String[]{String.valueOf(entryId)});
+    }
+
+    // ==================== METODY DLA TRAS (ROUTE TRACKS) ====================
+
+    public long insertRouteTrack(long entryId, String name, String filePath, int order) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_ENTRY_ID, entryId);
+        values.put(COLUMN_TRACK_NAME, name);
+        values.put(COLUMN_TRACK_FILE_PATH, filePath);
+        values.put(COLUMN_TRACK_ORDER, order);
+        return db.insert(TABLE_ROUTE_TRACKS, null, values);
+    }
+
+    public List<RouteTrack> getRouteTracksForEntry(long entryId) {
+        List<RouteTrack> tracks = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        String query = "SELECT * FROM " + TABLE_ROUTE_TRACKS + " WHERE " + COLUMN_ENTRY_ID + " = ? ORDER BY " + COLUMN_TRACK_ORDER;
+        Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(entryId)});
+
+        if (cursor.moveToFirst()) {
+            do {
+                RouteTrack track = new RouteTrack();
+                track.setId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_TRACK_ID)));
+                track.setEntryId(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENTRY_ID)));
+                track.setName(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TRACK_NAME)));
+                track.setFilePath(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TRACK_FILE_PATH)));
+                track.setOrder(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_TRACK_ORDER)));
+                tracks.add(track);
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        return tracks;
+    }
+
+    public void deleteAllRouteTracksForEntry(long entryId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_ROUTE_TRACKS, COLUMN_ENTRY_ID + " = ?", new String[]{String.valueOf(entryId)});
     }
 }

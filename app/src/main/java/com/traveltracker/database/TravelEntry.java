@@ -9,6 +9,7 @@ public class TravelEntry {
     private List<Note> notes;
     private List<Photo> photos;
     private List<MapPin> mapPins;
+    private List<RouteTrack> routeTracks;
     private List<String> tags;
     private String backgroundPath;
     private String backgroundColor;
@@ -33,6 +34,9 @@ public class TravelEntry {
 
     public List<MapPin> getMapPins() { return mapPins; }
     public void setMapPins(List<MapPin> pins) { this.mapPins = pins; }
+
+    public List<RouteTrack> getRouteTracks() { return routeTracks; }
+    public void setRouteTracks(List<RouteTrack> routeTracks) { this.routeTracks = routeTracks; }
 
     public List<String> getTags() { return tags; }
     public void setTags(List<String> tags) { this.tags = tags; }

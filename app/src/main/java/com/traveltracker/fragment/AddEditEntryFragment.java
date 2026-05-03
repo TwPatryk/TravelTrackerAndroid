@@ -44,6 +44,7 @@ import com.traveltracker.database.EntryItem;
 import com.traveltracker.database.MapPin;
 import com.traveltracker.database.Note;
 import com.traveltracker.database.Photo;
+import com.traveltracker.database.RouteTrack;
 import com.traveltracker.database.TravelEntry;
 
 import java.io.File;
@@ -99,6 +100,19 @@ public class AddEditEntryFragment extends DialogFragment {
             registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
                 if (uri != null) {
                     saveImageToInternalStorage(uri);
+                }
+            });
+
+    private final ActivityResultLauncher<String[]> trackPickerLauncher =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+                if (uri != null) {
+                    requireContext().getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    RouteTrack newTrack = new RouteTrack();
+                    newTrack.setName("New Track");
+                    newTrack.setFilePath(uri.toString());
+                    newTrack.setOrder(itemsList.size());
+                    itemsList.add(newTrack);
+                    itemsAdapter.notifyItemInserted(itemsList.size() - 1);
                 }
             });
 
@@ -173,6 +187,7 @@ public class AddEditEntryFragment extends DialogFragment {
         Button btnAddNote = view.findViewById(R.id.btn_add_note);
         Button btnAddPhoto = view.findViewById(R.id.btn_add_photo);
         Button btnAddPin = view.findViewById(R.id.btn_add_pin);
+        Button btnAddTrack = view.findViewById(R.id.btn_add_track);
         Button btnSave = view.findViewById(R.id.btn_save_entry);
         Button btnCancel = view.findViewById(R.id.btn_cancel_entry);
         Button btnEditBg = view.findViewById(R.id.btn_edit_background);
@@ -186,6 +201,7 @@ public class AddEditEntryFragment extends DialogFragment {
             if (currentEntry.getNotes() != null) itemsList.addAll(currentEntry.getNotes());
             if (currentEntry.getPhotos() != null) itemsList.addAll(currentEntry.getPhotos());
             if (currentEntry.getMapPins() != null) itemsList.addAll(currentEntry.getMapPins());
+            if (currentEntry.getRouteTracks() != null) itemsList.addAll(currentEntry.getRouteTracks());
             
             Collections.sort(itemsList, Comparator.comparingInt(EntryItem::getOrder));
             itemsAdapter.notifyDataSetChanged();
@@ -206,6 +222,10 @@ public class AddEditEntryFragment extends DialogFragment {
 
         btnAddPin.setOnClickListener(v -> {
             showAddPinOptions();
+        });
+
+        btnAddTrack.setOnClickListener(v -> {
+            trackPickerLauncher.launch(new String[]{"*/*"});
         });
 
         btnEditBg.setOnClickListener(v -> {
@@ -497,6 +517,7 @@ public class AddEditEntryFragment extends DialogFragment {
             dbHelper.deleteAllNotesForEntry(entryId);
             dbHelper.deleteAllPhotosForEntry(entryId);
             dbHelper.deleteAllPinsForEntry(entryId);
+            dbHelper.deleteAllRouteTracksForEntry(entryId);
             dbHelper.deleteAllTagsForEntry(entryId);
         }
 
@@ -518,6 +539,9 @@ public class AddEditEntryFragment extends DialogFragment {
             } else if (item.isMapPin()) {
                 MapPin pin = (MapPin) item;
                 dbHelper.insertMapPin(entryId, pin.getLabel(), pin.getLatitude(), pin.getLongitude(), i);
+            } else if (item instanceof RouteTrack) {
+                RouteTrack track = (RouteTrack) item;
+                dbHelper.insertRouteTrack(entryId, track.getName(), track.getFilePath(), i);
             } else {
                 dbHelper.insertPhoto(entryId, ((Photo) item).getPath(), i);
             }
@@ -538,12 +562,14 @@ public class AddEditEntryFragment extends DialogFragment {
         private static final int TYPE_NOTE = 0;
         private static final int TYPE_PHOTO = 1;
         private static final int TYPE_PIN = 2;
+        private static final int TYPE_TRACK = 3;
 
         @Override
         public int getItemViewType(int position) {
             EntryItem item = itemsList.get(position);
             if (item.isNote()) return TYPE_NOTE;
             if (item.isMapPin()) return TYPE_PIN;
+            if (item instanceof RouteTrack) return TYPE_TRACK;
             return TYPE_PHOTO;
         }
 
@@ -555,6 +581,8 @@ public class AddEditEntryFragment extends DialogFragment {
                 return new NoteViewHolder(inflater.inflate(R.layout.item_note, parent, false));
             } else if (viewType == TYPE_PIN) {
                 return new PinViewHolder(inflater.inflate(R.layout.item_map_pin, parent, false));
+            } else if (viewType == TYPE_TRACK) {
+                return new TrackViewHolder(inflater.inflate(R.layout.item_route_track, parent, false));
             } else {
                 return new PhotoViewHolder(inflater.inflate(R.layout.item_photo, parent, false));
             }
@@ -610,6 +638,33 @@ public class AddEditEntryFragment extends DialogFragment {
                     itemsList.remove(pos);
                     notifyItemRemoved(pos);
                 });
+            } else if (holder instanceof TrackViewHolder) {
+                RouteTrack track = (RouteTrack) item;
+                TrackViewHolder h = (TrackViewHolder) holder;
+                h.nameInput.setText(track.getName());
+                h.pathText.setText(track.getFilePath());
+                h.nameInput.addTextChangedListener(new TextWatcher() {
+                    @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                    @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                        track.setName(s.toString());
+                    }
+                    @Override public void afterTextChanged(Editable s) {}
+                });
+                h.btnOpen.setOnClickListener(v -> {
+                    Intent intent = new Intent(Intent.ACTION_VIEW);
+                    intent.setDataAndType(Uri.parse(track.getFilePath()), "*/*");
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    try {
+                        startActivity(Intent.createChooser(intent, "Open track with..."));
+                    } catch (Exception e) {
+                        Toast.makeText(getContext(), "No app found to open this file", Toast.LENGTH_SHORT).show();
+                    }
+                });
+                h.btnDelete.setOnClickListener(v -> {
+                    int pos = holder.getAdapterPosition();
+                    itemsList.remove(pos);
+                    notifyItemRemoved(pos);
+                });
             } else if (holder instanceof PhotoViewHolder) {
                 Photo photo = (Photo) item;
                 PhotoViewHolder h = (PhotoViewHolder) holder;
@@ -659,6 +714,19 @@ public class AddEditEntryFragment extends DialogFragment {
                 super(v);
                 imageView = v.findViewById(R.id.photo_image);
                 btnDelete = v.findViewById(R.id.btn_delete_photo);
+            }
+        }
+
+        class TrackViewHolder extends RecyclerView.ViewHolder {
+            EditText nameInput;
+            TextView pathText;
+            View btnOpen, btnDelete;
+            TrackViewHolder(View v) {
+                super(v);
+                nameInput = v.findViewById(R.id.track_name);
+                pathText = v.findViewById(R.id.track_path);
+                btnOpen = v.findViewById(R.id.btn_open_track);
+                btnDelete = v.findViewById(R.id.btn_delete_track);
             }
         }
     }

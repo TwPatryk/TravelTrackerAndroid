@@ -23,14 +23,14 @@
             android:layout_marginEnd="8dp"
             android:contentDescription="Drag to reorder"
             app:tint="@color/gray"
-            android:alpha="0.6"/>
+            android:alpha="0.6" />
 
         <ImageView
             android:layout_width="32dp"
             android:layout_height="32dp"
-            android:src="@android:drawable/ic_dialog_map"
-            app:tint="@color/primary"
-            android:layout_marginEnd="8dp"/>
+            android:src="@drawable/ic_compass"
+            android:layout_marginEnd="8dp"
+            app:tint="@color/primary" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -39,41 +39,40 @@
             android:orientation="vertical">
 
             <EditText
-                android:id="@+id/pin_label"
+                android:id="@+id/track_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Location Name"
-                android:textSize="14sp"
+                android:hint="Track name (e.g. My Hike)"
+                android:textSize="16sp"
                 android:background="@null"
-                android:padding="4dp"/>
+                android:padding="4dp" />
 
             <TextView
-                android:id="@+id/pin_coords"
+                android:id="@+id/track_path"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="0.0, 0.0"
                 android:textSize="12sp"
                 android:textColor="@color/gray"
-                android:paddingStart="4dp"/>
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:paddingStart="4dp" />
         </LinearLayout>
 
         <ImageButton
-            android:id="@+id/btn_open_map"
+            android:id="@+id/btn_open_track"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@android:drawable/ic_menu_directions"
             android:background="?attr/selectableItemBackgroundBorderless"
-            app:tint="@color/primary"
-            android:contentDescription="Open in Maps"/>
+            app:tint="@color/primary" />
 
         <ImageButton
-            android:id="@+id/btn_delete_pin"
+            android:id="@+id/btn_delete_track"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@android:drawable/ic_menu_delete"
             android:background="?attr/selectableItemBackgroundBorderless"
-            app:tint="@color/delete_red"
-            android:contentDescription="Delete pin"/>
+            app:tint="#FF0000" />
 
     </LinearLayout>
 </androidx.cardview.widget.CardView>

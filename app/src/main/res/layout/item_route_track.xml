@@ -26,6 +26,7 @@
             android:alpha="0.6" />
 
         <ImageView
+            android:id="@+id/iv_track_icon"
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:src="@drawable/ic_compass"

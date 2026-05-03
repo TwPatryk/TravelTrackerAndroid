@@ -218,6 +218,9 @@ public class AddEditEntryFragment extends DialogFragment {
         Button btnCancel = view.findViewById(R.id.btn_cancel_entry);
         Button btnEditBg = view.findViewById(R.id.btn_edit_background);
 
+        // Apply theme color to buttons
+        applyThemeToUI(view);
+
         if (currentEntry != null) {
             titleInput.setText(currentEntry.getTitle());
             if (currentEntry.getTags() != null && !currentEntry.getTags().isEmpty()) {
@@ -266,6 +269,63 @@ public class AddEditEntryFragment extends DialogFragment {
         btnCancel.setOnClickListener(v -> dismiss());
 
         return view;
+    }
+
+    private int getThemeColor() {
+        if (getContext() == null) return android.graphics.Color.parseColor("#FFFF3D00");
+        int primaryColor = androidx.core.content.ContextCompat.getColor(requireContext(), R.color.primary);
+        String themeColorHex = dbHelper.getGlobalSetting("theme_color");
+        String fabColorHex = dbHelper.getGlobalSetting("fab_bg_color");
+        
+        String colorHex = (fabColorHex != null && !fabColorHex.isEmpty()) ? fabColorHex : themeColorHex;
+        
+        if (colorHex == null || colorHex.isEmpty()) return primaryColor;
+        try {
+            return android.graphics.Color.parseColor(colorHex);
+        } catch (Exception e) {
+            return primaryColor;
+        }
+    }
+
+    private void applyThemeToUI(View view) {
+        int themeColor = getThemeColor();
+        android.content.res.ColorStateList themeTint = android.content.res.ColorStateList.valueOf(themeColor);
+
+        com.google.android.material.button.MaterialButton btnAddNote = view.findViewById(R.id.btn_add_note);
+        com.google.android.material.button.MaterialButton btnAddPhoto = view.findViewById(R.id.btn_add_photo);
+        com.google.android.material.button.MaterialButton btnAddPin = view.findViewById(R.id.btn_add_pin);
+        com.google.android.material.button.MaterialButton btnAddTrack = view.findViewById(R.id.btn_add_track);
+        Button btnSave = view.findViewById(R.id.btn_save_entry);
+        com.google.android.material.button.MaterialButton btnEditBg = view.findViewById(R.id.btn_edit_background);
+
+        if (btnAddNote != null) {
+            btnAddNote.setStrokeColor(themeTint);
+            btnAddNote.setTextColor(themeTint);
+            btnAddNote.setIconTint(themeTint);
+        }
+        if (btnAddPhoto != null) {
+            btnAddPhoto.setStrokeColor(themeTint);
+            btnAddPhoto.setTextColor(themeTint);
+            btnAddPhoto.setIconTint(themeTint);
+        }
+        if (btnAddPin != null) {
+            btnAddPin.setStrokeColor(themeTint);
+            btnAddPin.setTextColor(themeTint);
+            btnAddPin.setIconTint(themeTint);
+        }
+        if (btnAddTrack != null) {
+            btnAddTrack.setStrokeColor(themeTint);
+            btnAddTrack.setTextColor(themeTint);
+            btnAddTrack.setIconTint(themeTint);
+        }
+        if (btnSave != null) {
+            btnSave.setBackgroundTintList(themeTint);
+        }
+        if (btnEditBg != null) {
+            btnEditBg.setStrokeColor(themeTint);
+            btnEditBg.setTextColor(themeTint);
+            btnEditBg.setIconTint(themeTint);
+        }
     }
 
     private void showAddPinOptions() {
@@ -748,6 +808,10 @@ public class AddEditEntryFragment extends DialogFragment {
                 return false;
             });
 
+            // Pobierz kolor motywu (taki jak FAB) z klasy nadrzędnej
+            int themeColor = getThemeColor();
+            android.content.res.ColorStateList themeTint = android.content.res.ColorStateList.valueOf(themeColor);
+
             if (holder instanceof NoteViewHolder) {
                 Note note = (Note) item;
                 NoteViewHolder h = (NoteViewHolder) holder;
@@ -767,6 +831,11 @@ public class AddEditEntryFragment extends DialogFragment {
             } else if (holder instanceof PinViewHolder) {
                 MapPin pin = (MapPin) item;
                 PinViewHolder h = (PinViewHolder) holder;
+                
+                // Zastosuj kolor motywu do ikonek lokalizacji
+                if (h.pinIcon != null) h.pinIcon.setImageTintList(themeTint);
+                if (h.btnOpenMap instanceof ImageButton) ((ImageButton) h.btnOpenMap).setImageTintList(themeTint);
+
                 h.labelInput.setText(pin.getLabel());
                 h.coordsText.setText(String.format(Locale.getDefault(), "%.4f, %.4f", pin.getLatitude(), pin.getLongitude()));
                 h.labelInput.addTextChangedListener(new TextWatcher() {
@@ -789,6 +858,11 @@ public class AddEditEntryFragment extends DialogFragment {
             } else if (holder instanceof TrackViewHolder) {
                 RouteTrack track = (RouteTrack) item;
                 TrackViewHolder h = (TrackViewHolder) holder;
+
+                // Zastosuj kolor motywu do ikonek śladu
+                if (h.trackIcon != null) h.trackIcon.setImageTintList(themeTint);
+                if (h.btnOpen instanceof ImageButton) ((ImageButton) h.btnOpen).setImageTintList(themeTint);
+
                 h.nameInput.setText(track.getName());
                 h.pathText.setText(track.getFilePath());
                 h.nameInput.addTextChangedListener(new TextWatcher() {
@@ -848,6 +922,10 @@ public class AddEditEntryFragment extends DialogFragment {
             return itemsList.size();
         }
 
+        private int getThemeColor() {
+            return AddEditEntryFragment.this.getThemeColor();
+        }
+
         class NoteViewHolder extends RecyclerView.ViewHolder {
             EditText noteInput;
             View btnDelete;
@@ -862,12 +940,14 @@ public class AddEditEntryFragment extends DialogFragment {
             EditText labelInput;
             TextView coordsText;
             View btnOpenMap, btnDelete;
+            ImageView pinIcon;
             PinViewHolder(View v) {
                 super(v);
                 labelInput = v.findViewById(R.id.pin_label);
                 coordsText = v.findViewById(R.id.pin_coords);
                 btnOpenMap = v.findViewById(R.id.btn_open_map);
                 btnDelete = v.findViewById(R.id.btn_delete_pin);
+                pinIcon = v.findViewById(R.id.iv_pin_icon);
             }
         }
 
@@ -885,12 +965,14 @@ public class AddEditEntryFragment extends DialogFragment {
             EditText nameInput;
             TextView pathText;
             View btnOpen, btnDelete;
+            ImageView trackIcon;
             TrackViewHolder(View v) {
                 super(v);
                 nameInput = v.findViewById(R.id.track_name);
                 pathText = v.findViewById(R.id.track_path);
                 btnOpen = v.findViewById(R.id.btn_open_track);
                 btnDelete = v.findViewById(R.id.btn_delete_track);
+                trackIcon = v.findViewById(R.id.iv_track_icon);
             }
         }
     }

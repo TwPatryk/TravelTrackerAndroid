@@ -11,6 +11,18 @@ Przy eksporcie wybierz miejsce zapisu.
 Przy imporcie wybierz wcześniej wyeksportowany plik. Aplikacja automatycznie załaduje nowe dane.
 Uwaga: Pamiętaj, że ta funkcja kopiuje samą bazę danych (teksty, współrzędne, ścieżki). Jeśli chcesz przenieść zdjęcia na inny telefon, musiałby
 
+1.
+Dedykowane Foldery: Wszystkie pliki dla wpisu o nazwie "Wycieczka w Tatry" trafią do folderu Entries/Wycieczka_w_Tatry/.
+2.
+Inteligentna Zmiana Nazwy: Jeśli zmienisz tytuł wpisu na "Moje Tatry", aplikacja:
+◦
+Automatycznie zmieni nazwę folderu na dysku.
+◦
+Zaktualizuje wszystkie ścieżki w bazie danych, aby zdjęcia i ślady nadal się wyświetlały.
+3.
+Sanityzacja Nazw: Znaki niedozwolone w nazwach plików (jak /, :, *) są automatycznie usuwane, co zapobiega błędom zapisu.
+4.
+GPX w Pamięci: Ślady GPX są teraz kopiowane do pamięci wewnętrznej aplikacji. Dzięki temu, nawet jeśli usuniesz oryginalny plik z folderu Pobrane, w Twojej aplikacji ślad nadal będzie dostępny
 
 
 Tak, wszystkie pliki graficzne są zapisywane w jednym folderze w pamięci wewnętrznej aplikacji.

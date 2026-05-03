@@ -107,14 +107,40 @@ public class AddEditEntryFragment extends DialogFragment {
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
                 if (uri != null) {
                     requireContext().getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    RouteTrack newTrack = new RouteTrack();
-                    newTrack.setName("New Track");
-                    newTrack.setFilePath(uri.toString());
-                    newTrack.setOrder(itemsList.size());
-                    itemsList.add(newTrack);
-                    itemsAdapter.notifyItemInserted(itemsList.size() - 1);
+                    saveTrackToInternalStorage(uri);
                 }
             });
+
+    private void saveTrackToInternalStorage(Uri uri) {
+        try {
+            String fileName = "TRACK_" + System.currentTimeMillis() + ".gpx";
+            String title = titleInput.getText().toString().trim();
+            File targetDir = title.isEmpty() ? requireContext().getFilesDir() : getEntryDirectory(title);
+            File file = new File(targetDir, fileName);
+
+            InputStream is = requireContext().getContentResolver().openInputStream(uri);
+            if (is == null) return;
+            FileOutputStream os = new FileOutputStream(file);
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = is.read(buffer)) > 0) {
+                os.write(buffer, 0, length);
+            }
+            os.flush();
+            os.close();
+            is.close();
+
+            RouteTrack newTrack = new RouteTrack();
+            newTrack.setName("New Track");
+            newTrack.setFilePath(file.getAbsolutePath());
+            newTrack.setOrder(itemsList.size());
+            itemsList.add(newTrack);
+            itemsAdapter.notifyItemInserted(itemsList.size() - 1);
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(getContext(), "Error saving track", Toast.LENGTH_SHORT).show();
+        }
+    }
 
     public interface OnEntrySavedListener {
         void onEntrySaved();
@@ -338,26 +364,34 @@ public class AddEditEntryFragment extends DialogFragment {
 
     private void saveImageToInternalStorage(Uri uri) {
         try {
+            // 1. Get image dimensions without loading into memory
             InputStream inputStream = requireContext().getContentResolver().openInputStream(uri);
-            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeStream(inputStream, null, options);
+            if (inputStream != null) inputStream.close();
+
+            // 2. Calculate optimal sample size to avoid OOM
+            int maxWidth = 2500;
+            int maxHeight = 2500;
+            options.inSampleSize = calculateInSampleSize(options, maxWidth, maxHeight);
+            options.inJustDecodeBounds = false;
+
+            // 3. Decode with sample size
+            inputStream = requireContext().getContentResolver().openInputStream(uri);
+            Bitmap bitmap = BitmapFactory.decodeStream(inputStream, null, options);
             if (inputStream != null) inputStream.close();
 
             if (bitmap != null) {
-                int maxWidth = 1920;
-                int maxHeight = 1920;
-                float ratio = Math.min((float) maxWidth / bitmap.getWidth(), (float) maxHeight / bitmap.getHeight());
-                if (ratio < 1.0f) {
-                    int width = Math.round(ratio * bitmap.getWidth());
-                    int height = Math.round(ratio * bitmap.getHeight());
-                    bitmap = Bitmap.createScaledBitmap(bitmap, width, height, true);
-                }
-
                 String fileName = "IMG_" + System.currentTimeMillis() + ".jpg";
-                File file = new File(requireContext().getFilesDir(), fileName);
-                FileOutputStream out = new FileOutputStream(file);
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out);
-                out.flush();
-                out.close();
+                String title = titleInput.getText().toString().trim();
+                File targetDir = title.isEmpty() ? requireContext().getFilesDir() : getEntryDirectory(title);
+                
+                File file = new File(targetDir, fileName);
+                try (FileOutputStream out = new FileOutputStream(file)) {
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out);
+                    out.flush();
+                }
 
                 Photo newPhoto = new Photo();
                 newPhoto.setPath(file.getAbsolutePath());
@@ -365,10 +399,25 @@ public class AddEditEntryFragment extends DialogFragment {
                 itemsList.add(newPhoto);
                 itemsAdapter.notifyItemInserted(itemsList.size() - 1);
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
-            Toast.makeText(getContext(), "Error saving image", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), "Error saving image: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private int calculateInSampleSize(BitmapFactory.Options options, int reqWidth, int reqHeight) {
+        final int height = options.outHeight;
+        final int width = options.outWidth;
+        int inSampleSize = 1;
+
+        if (height > reqHeight || width > reqWidth) {
+            final int halfHeight = height / 2;
+            final int halfWidth = width / 2;
+            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2;
+            }
+        }
+        return inSampleSize;
     }
 
     private void showFullScreenImage(String path) {
@@ -378,15 +427,12 @@ public class AddEditEntryFragment extends DialogFragment {
         ImageButton btnClose = dialog.findViewById(R.id.btn_close_full_screen);
         
         File imgFile = new File(path);
-        if (imgFile.exists()) {
-            Glide.with(this)
-                    .load(imgFile)
-                    .into(fullScreenImage);
-        } else {
-            Glide.with(this)
-                    .load(path)
-                    .into(fullScreenImage);
-        }
+        Glide.with(this)
+                .load(imgFile.exists() ? imgFile : path)
+                .fitCenter()
+                .placeholder(android.R.drawable.ic_menu_gallery)
+                .error(android.R.drawable.ic_menu_report_image)
+                .into(fullScreenImage);
 
         btnClose.setOnClickListener(v -> dialog.dismiss());
         dialog.show();
@@ -500,6 +546,85 @@ public class AddEditEntryFragment extends DialogFragment {
         dialog.show();
     }
 
+    private void updatePathsInList(File newDir) {
+        for (EntryItem item : itemsList) {
+            if (item instanceof Photo) {
+                Photo p = (Photo) item;
+                File f = new File(p.getPath());
+                p.setPath(new File(newDir, f.getName()).getAbsolutePath());
+            } else if (item instanceof RouteTrack) {
+                RouteTrack t = (RouteTrack) item;
+                if (t.getFilePath().startsWith("/")) {
+                    File f = new File(t.getFilePath());
+                    t.setFilePath(new File(newDir, f.getName()).getAbsolutePath());
+                }
+            }
+        }
+        if (currentEntry != null && currentEntry.getBackgroundPath() != null) {
+            if (currentEntry.getBackgroundPath().startsWith("/")) {
+                File f = new File(currentEntry.getBackgroundPath());
+                currentEntry.setBackgroundPath(new File(newDir, f.getName()).getAbsolutePath());
+            }
+        }
+    }
+
+    private void moveOrphanedFilesToDir(File targetDir) {
+        File filesDir = requireContext().getFilesDir();
+        for (EntryItem item : itemsList) {
+            String path = null;
+            if (item instanceof Photo) path = ((Photo) item).getPath();
+            else if (item instanceof RouteTrack) path = ((RouteTrack) item).getFilePath();
+
+            if (path != null && path.startsWith(filesDir.getAbsolutePath()) && !path.contains("/Entries/")) {
+                File sourceFile = new File(path);
+                if (sourceFile.exists()) {
+                    File targetFile = new File(targetDir, sourceFile.getName());
+                    if (sourceFile.renameTo(targetFile)) {
+                        if (item instanceof Photo) ((Photo) item).setPath(targetFile.getAbsolutePath());
+                        else ((RouteTrack) item).setFilePath(targetFile.getAbsolutePath());
+                    }
+                }
+            }
+        }
+    }
+
+    private String sanitizeFilename(String name) {
+        if (name == null || name.isEmpty()) return "unnamed_entry";
+        return name.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+    }
+
+    private File getEntryDirectory(String title) {
+        File baseDir = new File(requireContext().getFilesDir(), "Entries");
+        if (!baseDir.exists()) baseDir.mkdirs();
+        File entryDir = new File(baseDir, sanitizeFilename(title));
+        if (!entryDir.exists()) entryDir.mkdirs();
+        return entryDir;
+    }
+
+    private void moveFilesToTargetDir(File targetDir) {
+        File internalFilesDir = requireContext().getFilesDir();
+        String targetDirPath = targetDir.getAbsolutePath();
+
+        for (EntryItem item : itemsList) {
+            String currentPath = null;
+            if (item instanceof Photo) currentPath = ((Photo) item).getPath();
+            else if (item instanceof RouteTrack) currentPath = ((RouteTrack) item).getFilePath();
+
+            if (currentPath != null && currentPath.startsWith(internalFilesDir.getAbsolutePath()) 
+                && !currentPath.startsWith(targetDirPath)) {
+                
+                File sourceFile = new File(currentPath);
+                if (sourceFile.exists()) {
+                    File targetFile = new File(targetDir, sourceFile.getName());
+                    if (sourceFile.renameTo(targetFile)) {
+                        if (item instanceof Photo) ((Photo) item).setPath(targetFile.getAbsolutePath());
+                        else if (item instanceof RouteTrack) ((RouteTrack) item).setFilePath(targetFile.getAbsolutePath());
+                    }
+                }
+            }
+        }
+    }
+
     private void saveEntry() {
         String title = titleInput.getText().toString().trim();
         String tagsText = tagsInput.getText().toString().trim();
@@ -507,6 +632,27 @@ public class AddEditEntryFragment extends DialogFragment {
             Toast.makeText(getContext(), "Please enter a title", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        File baseDir = new File(requireContext().getFilesDir(), "Entries");
+        if (!baseDir.exists()) baseDir.mkdirs();
+        
+        File entryDir = new File(baseDir, sanitizeFilename(title));
+        
+        // Jeśli edytujemy i zmienił się tytuł -> zmień nazwę folderu
+        if (currentEntry != null) {
+            String oldSanitized = sanitizeFilename(currentEntry.getTitle());
+            File oldDir = new File(baseDir, oldSanitized);
+            if (oldDir.exists() && !oldDir.equals(entryDir)) {
+                if (oldDir.renameTo(entryDir)) {
+                    updatePathsInList(entryDir);
+                }
+            }
+        }
+        
+        if (!entryDir.exists()) entryDir.mkdirs();
+        
+        // Przenieś wszystkie luźne pliki do folderu docelowego
+        moveFilesToTargetDir(entryDir);
 
         long entryId;
         if (currentEntry == null) {
@@ -520,6 +666,8 @@ public class AddEditEntryFragment extends DialogFragment {
             dbHelper.deleteAllRouteTracksForEntry(entryId);
             dbHelper.deleteAllTagsForEntry(entryId);
         }
+        
+        // Dalsza część zapisu...
 
         // Zapisz tagi
         if (!tagsText.isEmpty()) {
@@ -651,13 +799,29 @@ public class AddEditEntryFragment extends DialogFragment {
                     @Override public void afterTextChanged(Editable s) {}
                 });
                 h.btnOpen.setOnClickListener(v -> {
+                    File file = new File(track.getFilePath());
+                    if (!file.exists()) {
+                        Toast.makeText(getContext(), "File does not exist", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    Uri contentUri = androidx.core.content.FileProvider.getUriForFile(requireContext(), 
+                        "com.traveltracker.fileprovider", file);
+
                     Intent intent = new Intent(Intent.ACTION_VIEW);
-                    intent.setDataAndType(Uri.parse(track.getFilePath()), "*/*");
+                    intent.setDataAndType(contentUri, "application/gpx+xml");
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    
                     try {
                         startActivity(Intent.createChooser(intent, "Open track with..."));
                     } catch (Exception e) {
-                        Toast.makeText(getContext(), "No app found to open this file", Toast.LENGTH_SHORT).show();
+                        // Fallback to generic type
+                        intent.setDataAndType(contentUri, "*/*");
+                        try {
+                            startActivity(Intent.createChooser(intent, "Open track with..."));
+                        } catch (Exception ex) {
+                            Toast.makeText(getContext(), "No app found to open this file", Toast.LENGTH_SHORT).show();
+                        }
                     }
                 });
                 h.btnDelete.setOnClickListener(v -> {

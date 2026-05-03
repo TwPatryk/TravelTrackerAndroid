@@ -26,6 +26,8 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.navigation.NavigationView;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.request.RequestOptions;
+import com.bumptech.glide.load.resource.bitmap.DownsampleStrategy;
 import com.traveltracker.adapter.EntryAdapter;
 import com.traveltracker.database.DatabaseHelper;
 import com.traveltracker.database.TravelEntry;
@@ -71,6 +73,13 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
+    private final ActivityResultLauncher<String> exportAllLauncher =
+            registerForActivityResult(new ActivityResultContracts.CreateDocument("application/zip"), uri -> {
+                if (uri != null) {
+                    exportAllData(uri);
+                }
+            });
+
     private final ActivityResultLauncher<String[]> importLauncher =
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
                 if (uri != null) {
@@ -113,10 +122,8 @@ public class MainActivity extends AppCompatActivity {
         android.util.Log.d("MainActivity", "=== APP STARTING ===");
         super.onCreate(savedInstanceState);
         try {
-            android.util.Log.d("MainActivity", "Setting content view...");
             setContentView(R.layout.activity_main);
-            android.util.Log.d("MainActivity", "Content view set.");
-
+            
             dbHelper = DatabaseHelper.getInstance(this);
             allEntries = new ArrayList<>();
             filteredEntries = new ArrayList<>();
@@ -125,201 +132,157 @@ public class MainActivity extends AppCompatActivity {
             setupDrawer();
             setupRecyclerView();
             setupFilters();
-            applyBackgroundSettings();
-            loadEntries();
+            
+            // Start loading data in background to prevent ANR on Xiaomi 13T
+            new Thread(() -> {
+                loadInitialData();
+            }).start();
+
         } catch (Exception e) {
             android.util.Log.e("MainActivity", "Error in onCreate", e);
-            Toast.makeText(this, "Critical error: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
-    private void applyBackgroundSettings() {
+    private void loadInitialData() {
+        // 1. Load background settings first (heavy DB work)
+        final java.util.Map<String, String> settings = new java.util.HashMap<>();
+        String[] keys = {"theme_color", "main_bg_path", "main_bg_color", "main_bg_opacity", 
+                         "toolbar_bg_path", "toolbar_bg_color", "toolbar_bg_opacity", 
+                         "fab_bg_path", "fab_bg_color", "fab_bg_opacity"};
+        for (String key : keys) {
+            settings.put(key, dbHelper.getGlobalSetting(key));
+        }
+
+        // 2. Load entries
+        final List<TravelEntry> entries = dbHelper.getAllEntries();
+
+        // 3. Update UI on main thread
+        runOnUiThread(() -> {
+            applyBackgroundSettingsFromMap(settings);
+            allEntries.clear();
+            allEntries.addAll(entries);
+            applyFilters();
+            updateTagChips();
+            updateDrawerMenu();
+            android.util.Log.d("MainActivity", "Data loaded and UI updated.");
+        });
+    }
+
+    private void applyBackgroundSettingsFromMap(java.util.Map<String, String> settings) {
+        if (isFinishing() || isDestroyed()) return;
         try {
-            String themeColorHex = dbHelper.getGlobalSetting("theme_color");
-            int themeColor = safeParseColor(themeColorHex, androidx.core.content.ContextCompat.getColor(this, R.color.primary));
+            int primaryColor = androidx.core.content.ContextCompat.getColor(this, R.color.primary);
+            int themeColor = safeParseColor(settings.get("theme_color"), primaryColor);
 
-            // Main Background
-            String path = dbHelper.getGlobalSetting("main_bg_path");
-            String colorHex = dbHelper.getGlobalSetting("main_bg_color");
-            String opacityStr = dbHelper.getGlobalSetting("main_bg_opacity");
-            String scaleTypeStr = dbHelper.getGlobalSetting("main_bg_scale_type");
+            com.bumptech.glide.request.RequestOptions bgOptions = new com.bumptech.glide.request.RequestOptions()
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .override(800)
+                    .centerCrop()
+                    .downsample(com.bumptech.glide.load.resource.bitmap.DownsampleStrategy.AT_MOST)
+                    .error(android.R.drawable.ic_menu_report_image);
 
-            float opacity = 1.0f;
-            try {
-                if (opacityStr != null) opacity = Float.parseFloat(opacityStr);
-            } catch (NumberFormatException ignored) {}
-
-            android.widget.ImageView.ScaleType scaleType = android.widget.ImageView.ScaleType.CENTER_CROP;
-            try {
-                if (scaleTypeStr != null) scaleType = android.widget.ImageView.ScaleType.valueOf(scaleTypeStr);
-            } catch (IllegalArgumentException ignored) {}
+            // 1. Main Background
+            String path = settings.get("main_bg_path");
+            String colorHex = settings.get("main_bg_color");
+            String opacityStr = settings.get("main_bg_opacity");
 
             if (path != null && !path.isEmpty()) {
-                Glide.with(this)
-                        .load(Uri.parse(path))
-                        .diskCacheStrategy(DiskCacheStrategy.ALL)
-                        .error(android.R.drawable.ic_menu_report_image)
-                        .into(backgroundImageView);
-                
+                Uri uri = Uri.parse(path);
+                try {
+                    getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                } catch (Exception ignored) {}
+
+                Glide.with(this).load(uri).apply(bgOptions).into(backgroundImageView);
                 backgroundImageView.setVisibility(android.view.View.VISIBLE);
-                backgroundImageView.setScaleType(scaleType);
-                backgroundImageView.setAlpha(1.0f); 
                 
                 if (mainBackgroundOverlay != null) {
                     mainBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
+                    float opacity = 1.0f;
+                    try { if (opacityStr != null) opacity = Float.parseFloat(opacityStr); } catch (Exception ignored) {}
                     mainBackgroundOverlay.setAlpha(1.0f - opacity);
                     mainBackgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
                 }
-            } else if (colorHex != null && !colorHex.isEmpty()) {
-                backgroundImageView.setVisibility(android.view.View.GONE);
-                if (mainBackgroundOverlay != null) {
-                    mainBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
-                    mainBackgroundOverlay.setAlpha(1.0f);
-                    mainBackgroundOverlay.setBackgroundColor(safeParseColor(colorHex, android.graphics.Color.WHITE));
-                }
             } else {
                 backgroundImageView.setVisibility(android.view.View.GONE);
-                if (mainBackgroundOverlay != null) mainBackgroundOverlay.setVisibility(android.view.View.GONE);
-                Glide.with(this).clear(backgroundImageView);
+                if (mainBackgroundOverlay != null) {
+                    if (colorHex != null && !colorHex.isEmpty()) {
+                        mainBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
+                        mainBackgroundOverlay.setAlpha(1.0f);
+                        mainBackgroundOverlay.setBackgroundColor(safeParseColor(colorHex, android.graphics.Color.WHITE));
+                    } else {
+                        mainBackgroundOverlay.setVisibility(android.view.View.GONE);
+                    }
+                }
             }
 
-            // Toolbar Background
-            String tPath = dbHelper.getGlobalSetting("toolbar_bg_path");
-            String tColorHex = dbHelper.getGlobalSetting("toolbar_bg_color");
-            String tOpacityStr = dbHelper.getGlobalSetting("toolbar_bg_opacity");
-            String tScaleTypeStr = dbHelper.getGlobalSetting("toolbar_bg_scale_type");
-
-            float tOpacity = 1.0f;
-            try {
-                if (tOpacityStr != null) tOpacity = Float.parseFloat(tOpacityStr);
-            } catch (NumberFormatException ignored) {}
-
-            android.widget.ImageView.ScaleType tScaleType = android.widget.ImageView.ScaleType.CENTER_CROP;
-            try {
-                if (tScaleTypeStr != null) tScaleType = android.widget.ImageView.ScaleType.valueOf(tScaleTypeStr);
-            } catch (IllegalArgumentException ignored) {}
+            // 2. Toolbar & Status Bar
+            String tPath = settings.get("toolbar_bg_path");
+            String tColorHex = settings.get("toolbar_bg_color");
+            int tColor = (tColorHex != null && !tColorHex.isEmpty()) ? safeParseColor(tColorHex, themeColor) : themeColor;
+            
+            getWindow().setStatusBarColor(tColor);
+            if (toolbar != null) toolbar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
 
             if (tPath != null && !tPath.isEmpty()) {
-                Glide.with(this)
-                        .load(Uri.parse(tPath))
-                        .diskCacheStrategy(DiskCacheStrategy.ALL)
-                        .into(toolbarBackgroundImageView);
+                Glide.with(this).load(Uri.parse(tPath)).apply(bgOptions).into(toolbarBackgroundImageView);
                 toolbarBackgroundImageView.setVisibility(android.view.View.VISIBLE);
-                toolbarBackgroundImageView.setScaleType(tScaleType);
-                
                 if (toolbarBackgroundOverlay != null) {
                     toolbarBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
-                    toolbarBackgroundOverlay.setAlpha(1.0f - tOpacity);
                     toolbarBackgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
+                    float tOpacity = 1.0f;
+                    String tOpacityStr = settings.get("toolbar_bg_opacity");
+                    try { if (tOpacityStr != null) tOpacity = Float.parseFloat(tOpacityStr); } catch (Exception ignored) {}
+                    toolbarBackgroundOverlay.setAlpha(1.0f - tOpacity);
                 }
-                if (toolbar != null) toolbar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-            } else if (tColorHex != null && !tColorHex.isEmpty()) {
+            } else {
                 toolbarBackgroundImageView.setVisibility(android.view.View.GONE);
                 if (toolbarBackgroundOverlay != null) {
                     toolbarBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
                     toolbarBackgroundOverlay.setAlpha(1.0f);
-                    toolbarBackgroundOverlay.setBackgroundColor(safeParseColor(tColorHex, themeColor));
-                }
-                if (toolbar != null) toolbar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-            } else {
-                toolbarBackgroundImageView.setVisibility(android.view.View.GONE);
-                if (toolbarBackgroundOverlay != null) toolbarBackgroundOverlay.setVisibility(android.view.View.GONE);
-                Glide.with(this).clear(toolbarBackgroundImageView);
-                if (toolbar != null) {
-                    toolbar.setBackgroundColor(themeColor);
-                    toolbar.setAlpha(1.0f);
+                    toolbarBackgroundOverlay.setBackgroundColor(tColor);
                 }
             }
 
-            // FAB Background Sync logic with Status Bar
-            String fPath = dbHelper.getGlobalSetting("fab_bg_path");
-            String fColorHex = dbHelper.getGlobalSetting("fab_bg_color");
-            String fOpacityStr = dbHelper.getGlobalSetting("fab_bg_opacity");
-            String fScaleTypeStr = dbHelper.getGlobalSetting("fab_bg_scale_type");
+            // 3. FAB
+            String fColorHex = settings.get("fab_bg_color");
+            int fColor = (fColorHex != null && !fColorHex.isEmpty()) ? safeParseColor(fColorHex, themeColor) : themeColor;
+            if (fab != null) fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(fColor));
 
-            // If FAB background is not explicitly set, inherit from Toolbar/Status Bar area
-            if ((fPath == null || fPath.isEmpty()) && (fColorHex == null || fColorHex.isEmpty())) {
-                fPath = tPath;
-                fColorHex = tColorHex;
-                fOpacityStr = tOpacityStr;
-                fScaleTypeStr = tScaleTypeStr;
-            }
-
-            float fOpacity = 1.0f;
-            try {
-                if (fOpacityStr != null) fOpacity = Float.parseFloat(fOpacityStr);
-            } catch (NumberFormatException ignored) {}
-
-            android.widget.ImageView.ScaleType fScaleType = android.widget.ImageView.ScaleType.CENTER_CROP;
-            try {
-                if (fScaleTypeStr != null) fScaleType = android.widget.ImageView.ScaleType.valueOf(fScaleTypeStr);
-            } catch (IllegalArgumentException ignored) {}
-
-            int finalFabColor = themeColor;
-
+            String fPath = settings.get("fab_bg_path");
             if (fPath != null && !fPath.isEmpty()) {
-                if (fabBackgroundImageView != null) {
-                    Glide.with(this)
-                            .load(Uri.parse(fPath))
-                            .diskCacheStrategy(DiskCacheStrategy.ALL)
-                            .into(fabBackgroundImageView);
-                    fabBackgroundImageView.setVisibility(android.view.View.VISIBLE);
-                    fabBackgroundImageView.setScaleType(fScaleType);
-                }
+                Glide.with(this).load(Uri.parse(fPath)).apply(bgOptions).into(fabBackgroundImageView);
+                fabBackgroundImageView.setVisibility(android.view.View.VISIBLE);
                 if (fabBackgroundOverlay != null) {
                     fabBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
+                    float fOpacity = 1.0f;
+                    String fOpacityStr = settings.get("fab_bg_opacity");
+                    try { if (fOpacityStr != null) fOpacity = Float.parseFloat(fOpacityStr); } catch (Exception ignored) {}
                     fabBackgroundOverlay.setAlpha(1.0f - fOpacity);
                     fabBackgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
                 }
-                if (fab != null) {
-                    fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
-                }
-            } else if (fColorHex != null && !fColorHex.isEmpty()) {
-                if (fabBackgroundImageView != null) fabBackgroundImageView.setVisibility(android.view.View.GONE);
-                finalFabColor = safeParseColor(fColorHex, themeColor);
-                if (fabBackgroundOverlay != null) fabBackgroundOverlay.setVisibility(android.view.View.GONE);
-                if (fab != null) {
-                    fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(finalFabColor));
-                }
             } else {
-                if (fabBackgroundImageView != null) {
-                    fabBackgroundImageView.setVisibility(android.view.View.GONE);
-                    Glide.with(this).clear(fabBackgroundImageView);
+                fabBackgroundImageView.setVisibility(android.view.View.GONE);
+                if (fabBackgroundOverlay != null) {
+                    fabBackgroundOverlay.setVisibility(android.view.View.GONE);
                 }
-                if (fabBackgroundOverlay != null) fabBackgroundOverlay.setVisibility(android.view.View.GONE);
-                
-                if (fab != null) {
-                    fab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(themeColor));
-                }
-            }
-
-            // Status Bar Sync Logic: Match Toolbar or FAB
-            int statusBarColor;
-            if (fColorHex != null && !fColorHex.isEmpty()) {
-                statusBarColor = safeParseColor(fColorHex, themeColor);
-            } else if (tColorHex != null && !tColorHex.isEmpty()) {
-                statusBarColor = safeParseColor(tColorHex, themeColor);
-            } else {
-                statusBarColor = themeColor;
-            }
-            getWindow().setStatusBarColor(statusBarColor);
-
-            // Item Style (Cards)
-            String iColorHex = dbHelper.getGlobalSetting("item_bg_color");
-            String iOpacityStr = dbHelper.getGlobalSetting("item_bg_opacity");
-            int iColor = safeParseColor(iColorHex, android.graphics.Color.WHITE);
-            float iOpacity = 1.0f;
-            try {
-                if (iOpacityStr != null) iOpacity = Float.parseFloat(iOpacityStr);
-            } catch (NumberFormatException ignored) {}
-
-            if (adapter != null) {
-                adapter.setItemStyle(iColor, iOpacity);
             }
 
         } catch (Exception e) {
-            android.util.Log.e("MainActivity", "Error in applyBackgroundSettings", e);
+            android.util.Log.e("MainActivity", "Error applying background settings", e);
         }
+    }
+
+    private void applyBackgroundSettings() {
+        new Thread(() -> {
+            final java.util.Map<String, String> settings = new java.util.HashMap<>();
+            String[] keys = {"theme_color", "main_bg_path", "main_bg_color", "main_bg_opacity", 
+                             "toolbar_bg_path", "toolbar_bg_color", "toolbar_bg_opacity", 
+                             "fab_bg_path", "fab_bg_color", "fab_bg_opacity"};
+            for (String key : keys) {
+                settings.put(key, dbHelper.getGlobalSetting(key));
+            }
+            runOnUiThread(() -> applyBackgroundSettingsFromMap(settings));
+        }).start();
     }
 
     private int safeParseColor(String colorHex, int fallbackColor) {
@@ -497,6 +460,7 @@ public class MainActivity extends AppCompatActivity {
         fab.setOnClickListener(v -> openAddEditFragment(null));
 
         Button btnExport = findViewById(R.id.btn_export);
+        Button btnExportAll = findViewById(R.id.btn_export_all);
         Button btnImport = findViewById(R.id.btn_import);
         Button btnSetBg = findViewById(R.id.btn_set_background);
         Button btnSetToolbarBg = findViewById(R.id.btn_set_toolbar_background);
@@ -505,7 +469,8 @@ public class MainActivity extends AppCompatActivity {
         Button btnChangeTheme = findViewById(R.id.btn_change_theme);
 
         btnExport.setOnClickListener(v -> exportLauncher.launch("travel_tracker_backup.db"));
-        btnImport.setOnClickListener(v -> importLauncher.launch(new String[]{"application/octet-stream", "*/*"}));
+        btnExportAll.setOnClickListener(v -> exportAllLauncher.launch("travel_tracker_full_backup.zip"));
+        btnImport.setOnClickListener(v -> importLauncher.launch(new String[]{"application/octet-stream", "application/zip", "*/*"}));
         btnSetBg.setOnClickListener(v -> showBackgroundSettingsDialog("main_bg_"));
         btnSetToolbarBg.setOnClickListener(v -> showBackgroundSettingsDialog("toolbar_bg_"));
         btnSetFabBg.setOnClickListener(v -> showBackgroundSettingsDialog("fab_bg_"));
@@ -613,7 +578,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applyThemeSettings() {
-        applyBackgroundSettings();
+        // Run on UI thread as it modifies views
+        runOnUiThread(() -> applyBackgroundSettings());
     }
 
     private void setupDrawer() {
@@ -884,6 +850,78 @@ public class MainActivity extends AppCompatActivity {
         fragment.show(getSupportFragmentManager(), "AddEditEntryFragment");
     }
 
+    private void exportAllData(Uri uri) {
+        new Thread(() -> {
+            boolean success = false;
+            try (OutputStream os = getContentResolver().openOutputStream(uri);
+                 java.io.BufferedOutputStream bos = new java.io.BufferedOutputStream(os);
+                 java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(bos)) {
+                
+                zos.setLevel(java.util.zip.Deflater.BEST_COMPRESSION);
+
+                // 1. Export Database
+                File dbFile = getDatabasePath("travel_tracker.db");
+                if (dbFile.exists()) {
+                    addToZip(dbFile, "travel_tracker.db", zos);
+                    
+                    File walFile = new File(dbFile.getPath() + "-wal");
+                    if (walFile.exists()) addToZip(walFile, "travel_tracker.db-wal", zos);
+                    
+                    File shmFile = new File(dbFile.getPath() + "-shm");
+                    if (shmFile.exists()) addToZip(shmFile, "travel_tracker.db-shm", zos);
+                }
+
+                // 2. Export Entries folder
+                File entriesDir = new File(getFilesDir(), "Entries");
+                if (entriesDir.exists()) {
+                    addFolderToZip(entriesDir, "Entries", zos);
+                }
+
+                zos.finish();
+                zos.flush();
+                success = true;
+            } catch (IOException e) {
+                e.printStackTrace();
+                final String errorMsg = e.getMessage();
+                runOnUiThread(() -> Toast.makeText(this, "Export failed: " + errorMsg, Toast.LENGTH_LONG).show());
+            }
+            
+            if (success) {
+                runOnUiThread(() -> Toast.makeText(this, "Full backup created successfully!", Toast.LENGTH_SHORT).show());
+            }
+        }).start();
+    }
+
+    private void addToZip(File file, String zipPath, java.util.zip.ZipOutputStream zos) throws IOException {
+        if (!file.exists() || !file.canRead()) return;
+        
+        java.util.zip.ZipEntry zipEntry = new java.util.zip.ZipEntry(zipPath);
+        zos.putNextEntry(zipEntry);
+        
+        try (FileInputStream fis = new FileInputStream(file)) {
+            byte[] bytes = new byte[16384];
+            int length;
+            while ((length = fis.read(bytes)) >= 0) {
+                zos.write(bytes, 0, length);
+            }
+        }
+        zos.closeEntry();
+    }
+
+    private void addFolderToZip(File folder, String parentPath, java.util.zip.ZipOutputStream zos) throws IOException {
+        File[] files = folder.listFiles();
+        if (files == null) return;
+
+        for (File file : files) {
+            String path = parentPath + "/" + file.getName();
+            if (file.isDirectory()) {
+                addFolderToZip(file, path, zos);
+            } else {
+                addToZip(file, path, zos);
+            }
+        }
+    }
+
     private void exportDatabase(Uri uri) {
         File dbFile = getDatabasePath("travel_tracker.db");
         try (InputStream in = new FileInputStream(dbFile);
@@ -901,26 +939,128 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void importDatabase(Uri uri) {
-        File dbFile = getDatabasePath("travel_tracker.db");
-        
-        // Close DB before import
-        dbHelper.close();
-
-        try (InputStream in = getContentResolver().openInputStream(uri);
-             OutputStream out = new FileOutputStream(dbFile)) {
-            byte[] buf = new byte[1024];
-            int len;
-            while ((len = in.read(buf)) > 0) {
-                out.write(buf, 0, len);
-            }
-            Toast.makeText(this, "Database imported successfully. Restarting...", Toast.LENGTH_SHORT).show();
-            
-            // Reload data
-            dbHelper = DatabaseHelper.getInstance(this);
-            loadEntries();
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "Import failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        String fileName = getFileName(uri);
+        if (fileName != null && fileName.endsWith(".zip")) {
+            importFullBackup(uri);
+            return;
         }
+
+        dbHelper.close();
+        new Thread(() -> {
+            boolean success = false;
+            File dbFile = getDatabasePath("travel_tracker.db");
+            try (InputStream in = getContentResolver().openInputStream(uri);
+                 OutputStream out = new FileOutputStream(dbFile)) {
+                byte[] buf = new byte[16384];
+                int len;
+                while ((len = in.read(buf)) > 0) {
+                    out.write(buf, 0, len);
+                }
+                success = true;
+            } catch (IOException e) {
+                e.printStackTrace();
+                final String msg = e.getMessage();
+                runOnUiThread(() -> Toast.makeText(this, "Import failed: " + msg, Toast.LENGTH_LONG).show());
+            }
+
+            if (success) {
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "Database imported successfully.", Toast.LENGTH_SHORT).show();
+                    dbHelper = DatabaseHelper.getInstance(this);
+                    loadEntries();
+                });
+            }
+        }).start();
+    }
+
+    private String getFileName(Uri uri) {
+        String result = null;
+        if (uri.getScheme().equals("content")) {
+            try (android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                    if (index != -1) result = cursor.getString(index);
+                }
+            }
+        }
+        if (result == null) {
+            result = uri.getPath();
+            int cut = result.lastIndexOf('/');
+            if (cut != -1) result = result.substring(cut + 1);
+        }
+        return result;
+    }
+
+    private void importFullBackup(Uri uri) {
+        dbHelper.close();
+        new Thread(() -> {
+            boolean success = false;
+            try (InputStream is = getContentResolver().openInputStream(uri);
+                 java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(is)) {
+
+                // Clear existing entries for a clean restore
+                File entriesDir = new File(getFilesDir(), "Entries");
+                if (entriesDir.exists()) {
+                    deleteRecursive(entriesDir);
+                }
+
+                java.util.zip.ZipEntry entry;
+                while ((entry = zis.getNextEntry()) != null) {
+                    File outFile;
+                    String name = entry.getName();
+                    
+                    if (name.equals("travel_tracker.db")) {
+                        outFile = getDatabasePath("travel_tracker.db");
+                    } else if (name.equals("travel_tracker.db-wal")) {
+                        outFile = getDatabasePath("travel_tracker.db-wal");
+                    } else if (name.equals("travel_tracker.db-shm")) {
+                        outFile = getDatabasePath("travel_tracker.db-shm");
+                    } else {
+                        outFile = new File(getFilesDir(), name);
+                    }
+
+                    if (entry.isDirectory()) {
+                        outFile.mkdirs();
+                    } else {
+                        File parent = outFile.getParentFile();
+                        if (parent != null) parent.mkdirs();
+                        
+                        try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                            byte[] buffer = new byte[16384];
+                            int len;
+                            while ((len = zis.read(buffer)) > 0) {
+                                fos.write(buffer, 0, len);
+                            }
+                        }
+                    }
+                    zis.closeEntry();
+                }
+                success = true;
+            } catch (IOException e) {
+                e.printStackTrace();
+                final String msg = e.getMessage();
+                runOnUiThread(() -> Toast.makeText(this, "Restore failed: " + msg, Toast.LENGTH_LONG).show());
+            }
+
+            if (success) {
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "Full backup restored successfully!", Toast.LENGTH_SHORT).show();
+                    dbHelper = DatabaseHelper.getInstance(this);
+                    loadEntries();
+                });
+            }
+        }).start();
+    }
+
+    private void deleteRecursive(File fileOrDirectory) {
+        if (fileOrDirectory.isDirectory()) {
+            File[] children = fileOrDirectory.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    deleteRecursive(child);
+                }
+            }
+        }
+        fileOrDirectory.delete();
     }
 }

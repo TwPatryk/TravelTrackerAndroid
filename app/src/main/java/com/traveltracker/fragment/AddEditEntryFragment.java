@@ -72,6 +72,10 @@ public class AddEditEntryFragment extends DialogFragment {
     private ImageView backgroundImageView;
     private View backgroundOverlay;
 
+    private int itemBgColor = android.graphics.Color.WHITE;
+    private float itemBgOpacity = 1.0f;
+    private int itemFontColor = android.graphics.Color.BLACK;
+
     private List<EntryItem> itemsList = new ArrayList<>();
 
     private final ActivityResultLauncher<String[]> backgroundPickerLauncher =
@@ -181,6 +185,21 @@ public class AddEditEntryFragment extends DialogFragment {
         itemsRecyclerView = view.findViewById(R.id.items_recycler_view);
         backgroundImageView = view.findViewById(R.id.entry_background_image);
         backgroundOverlay = view.findViewById(R.id.entry_background_overlay);
+
+        // Load global item styles
+        String bgColorHex = dbHelper.getGlobalSetting("item_bg_color");
+        String opacityStr = dbHelper.getGlobalSetting("item_bg_opacity");
+        String fontColorStr = dbHelper.getGlobalSetting("item_font_color");
+
+        if (bgColorHex != null && !bgColorHex.isEmpty()) {
+            try { itemBgColor = android.graphics.Color.parseColor(bgColorHex); } catch (Exception ignored) {}
+        }
+        if (opacityStr != null && !opacityStr.isEmpty()) {
+            try { itemBgOpacity = Float.parseFloat(opacityStr); } catch (Exception ignored) {}
+        }
+        if (fontColorStr != null && !fontColorStr.isEmpty()) {
+            try { itemFontColor = android.graphics.Color.parseColor(fontColorStr); } catch (Exception ignored) {}
+        }
 
         itemsRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         itemsAdapter = new ItemsAdapter();
@@ -292,6 +311,32 @@ public class AddEditEntryFragment extends DialogFragment {
         android.content.res.ColorStateList themeTint = android.content.res.ColorStateList.valueOf(themeColor);
         android.content.res.ColorStateList whiteTint = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE);
 
+        titleInput.setTextColor(itemFontColor);
+        tagsInput.setTextColor(itemFontColor);
+        titleInput.setHintTextColor(itemFontColor & 0x80FFFFFF); // 50% opacity for hint
+        tagsInput.setHintTextColor(itemFontColor & 0x80FFFFFF);
+
+        // Apply background style to inputs if we want them to match cards
+        int alpha = Math.round(itemBgOpacity * 255);
+        int colorWithAlpha = android.graphics.Color.argb(
+                alpha,
+                android.graphics.Color.red(itemBgColor),
+                android.graphics.Color.green(itemBgColor),
+                android.graphics.Color.blue(itemBgColor)
+        );
+        titleInput.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorWithAlpha));
+        tagsInput.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorWithAlpha));
+        
+        // Use a semi-transparent version of the color for the background if it's too bright or dark
+        // but for now, let's just use the selected card color for the input backgrounds as well
+        // We might want to add a bit of padding or rounded corners if possible via code
+        if (titleInput.getBackground() instanceof android.graphics.drawable.GradientDrawable) {
+             ((android.graphics.drawable.GradientDrawable)titleInput.getBackground()).setColor(colorWithAlpha);
+        }
+        if (tagsInput.getBackground() instanceof android.graphics.drawable.GradientDrawable) {
+             ((android.graphics.drawable.GradientDrawable)tagsInput.getBackground()).setColor(colorWithAlpha);
+        }
+
         com.google.android.material.button.MaterialButton btnAddNote = view.findViewById(R.id.btn_add_note);
         com.google.android.material.button.MaterialButton btnAddPhoto = view.findViewById(R.id.btn_add_photo);
         com.google.android.material.button.MaterialButton btnAddPin = view.findViewById(R.id.btn_add_pin);
@@ -327,6 +372,11 @@ public class AddEditEntryFragment extends DialogFragment {
             btnEditBg.setBackgroundTintList(themeTint);
             btnEditBg.setTextColor(whiteTint);
             btnEditBg.setIconTint(whiteTint);
+        }
+
+        // Apply delete icon colors in adapter if it exists
+        if (itemsAdapter != null) {
+            itemsAdapter.notifyDataSetChanged();
         }
     }
 
@@ -806,22 +856,41 @@ public class AddEditEntryFragment extends DialogFragment {
         @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
             EntryItem item = itemsList.get(position);
-            View dragHandle = holder.itemView.findViewById(R.id.iv_drag_handle);
-            dragHandle.setOnTouchListener((v, event) -> {
-                if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
-                    itemTouchHelper.startDrag(holder);
-                }
-                return false;
-            });
+            ImageView dragHandle = holder.itemView.findViewById(R.id.iv_drag_handle);
+            if (dragHandle != null) {
+                dragHandle.setColorFilter(itemFontColor);
+                dragHandle.setAlpha(0.6f);
+                dragHandle.setOnTouchListener((v, event) -> {
+                    if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                        itemTouchHelper.startDrag(holder);
+                    }
+                    return false;
+                });
+            }
 
             // Pobierz kolor motywu (taki jak FAB) z klasy nadrzędnej
             int themeColor = getThemeColor();
             android.content.res.ColorStateList themeTint = android.content.res.ColorStateList.valueOf(themeColor);
 
+            // Apply card styling
+            if (holder.itemView instanceof androidx.cardview.widget.CardView) {
+                androidx.cardview.widget.CardView cardView = (androidx.cardview.widget.CardView) holder.itemView;
+                int alpha = Math.round(itemBgOpacity * 255);
+                int colorWithAlpha = android.graphics.Color.argb(
+                        alpha,
+                        android.graphics.Color.red(itemBgColor),
+                        android.graphics.Color.green(itemBgColor),
+                        android.graphics.Color.blue(itemBgColor)
+                );
+                cardView.setCardBackgroundColor(colorWithAlpha);
+            }
+
             if (holder instanceof NoteViewHolder) {
                 Note note = (Note) item;
                 NoteViewHolder h = (NoteViewHolder) holder;
                 h.noteInput.setText(note.getText());
+                h.noteInput.setTextColor(itemFontColor);
+                h.noteInput.setHintTextColor(itemFontColor & 0x80FFFFFF);
                 h.noteInput.addTextChangedListener(new TextWatcher() {
                     @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
                     @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -834,6 +903,11 @@ public class AddEditEntryFragment extends DialogFragment {
                     itemsList.remove(pos);
                     notifyItemRemoved(pos);
                 });
+                
+                // Color delete icons consistently
+                if (h.btnDelete instanceof ImageButton) {
+                    ((ImageButton) h.btnDelete).setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FF4444")));
+                }
             } else if (holder instanceof PinViewHolder) {
                 MapPin pin = (MapPin) item;
                 PinViewHolder h = (PinViewHolder) holder;
@@ -843,7 +917,16 @@ public class AddEditEntryFragment extends DialogFragment {
                 if (h.btnOpenMap instanceof ImageButton) ((ImageButton) h.btnOpenMap).setImageTintList(themeTint);
 
                 h.labelInput.setText(pin.getLabel());
+                h.labelInput.setTextColor(itemFontColor);
+                h.labelInput.setHintTextColor(itemFontColor & 0x80FFFFFF);
                 h.coordsText.setText(String.format(Locale.getDefault(), "%.4f, %.4f", pin.getLatitude(), pin.getLongitude()));
+                h.coordsText.setTextColor(itemFontColor);
+                if (itemFontColor == android.graphics.Color.BLACK) {
+                    h.coordsText.setAlpha(0.6f);
+                } else {
+                    h.coordsText.setAlpha(0.8f);
+                }
+
                 h.labelInput.addTextChangedListener(new TextWatcher() {
                     @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
                     @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -861,6 +944,10 @@ public class AddEditEntryFragment extends DialogFragment {
                     itemsList.remove(pos);
                     notifyItemRemoved(pos);
                 });
+
+                if (h.btnDelete instanceof ImageButton) {
+                    ((ImageButton) h.btnDelete).setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FF4444")));
+                }
             } else if (holder instanceof TrackViewHolder) {
                 RouteTrack track = (RouteTrack) item;
                 TrackViewHolder h = (TrackViewHolder) holder;
@@ -870,7 +957,16 @@ public class AddEditEntryFragment extends DialogFragment {
                 if (h.btnOpen instanceof ImageButton) ((ImageButton) h.btnOpen).setImageTintList(themeTint);
 
                 h.nameInput.setText(track.getName());
+                h.nameInput.setTextColor(itemFontColor);
+                h.nameInput.setHintTextColor(itemFontColor & 0x80FFFFFF);
                 h.pathText.setText(track.getFilePath());
+                h.pathText.setTextColor(itemFontColor);
+                if (itemFontColor == android.graphics.Color.BLACK) {
+                    h.pathText.setAlpha(0.6f);
+                } else {
+                    h.pathText.setAlpha(0.8f);
+                }
+
                 h.nameInput.addTextChangedListener(new TextWatcher() {
                     @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
                     @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -909,6 +1005,10 @@ public class AddEditEntryFragment extends DialogFragment {
                     itemsList.remove(pos);
                     notifyItemRemoved(pos);
                 });
+
+                if (h.btnDelete instanceof ImageButton) {
+                    ((ImageButton) h.btnDelete).setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FF4444")));
+                }
             } else if (holder instanceof PhotoViewHolder) {
                 Photo photo = (Photo) item;
                 PhotoViewHolder h = (PhotoViewHolder) holder;
@@ -920,6 +1020,10 @@ public class AddEditEntryFragment extends DialogFragment {
                     itemsList.remove(pos);
                     notifyItemRemoved(pos);
                 });
+
+                if (h.btnDelete instanceof ImageButton) {
+                    ((ImageButton) h.btnDelete).setImageTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FF4444")));
+                }
             }
         }
 

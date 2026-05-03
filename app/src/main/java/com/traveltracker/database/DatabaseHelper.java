@@ -360,27 +360,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public void deletePhoto(long photoId) {
         SQLiteDatabase db = this.getWritableDatabase();
-        String query = "SELECT " + COLUMN_PHOTO_PATH + " FROM " + TABLE_PHOTOS + " WHERE " + COLUMN_PHOTO_ID + " = ?";
-        Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(photoId)});
-        if (cursor.moveToFirst()) {
-            String path = cursor.getString(0);
-            new java.io.File(path).delete();
-        }
-        cursor.close();
         db.delete(TABLE_PHOTOS, COLUMN_PHOTO_ID + " = ?", new String[]{String.valueOf(photoId)});
     }
 
     public void deleteAllPhotosForEntry(long entryId) {
         SQLiteDatabase db = this.getWritableDatabase();
-        String query = "SELECT " + COLUMN_PHOTO_PATH + " FROM " + TABLE_PHOTOS + " WHERE " + COLUMN_ENTRY_ID + " = ?";
-        Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(entryId)});
-        if (cursor.moveToFirst()) {
-            do {
-                String path = cursor.getString(0);
-                new java.io.File(path).delete();
-            } while (cursor.moveToNext());
-        }
-        cursor.close();
         db.delete(TABLE_PHOTOS, COLUMN_ENTRY_ID + " = ?", new String[]{String.valueOf(entryId)});
     }
 

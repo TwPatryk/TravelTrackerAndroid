@@ -23,6 +23,7 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
     private ItemTouchHelper itemTouchHelper;
     private int itemColor = android.graphics.Color.WHITE;
     private float itemOpacity = 1.0f;
+    private int fontColor = android.graphics.Color.BLACK;
 
     public interface OnEntryClickListener {
         void onEntryClick(TravelEntry entry);
@@ -38,9 +39,10 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
         this.itemTouchHelper = itemTouchHelper;
     }
 
-    public void setItemStyle(int color, float opacity) {
+    public void setItemStyle(int color, float opacity, int fontColor) {
         this.itemColor = color;
         this.itemOpacity = opacity;
+        this.fontColor = fontColor;
         notifyDataSetChanged();
     }
 
@@ -62,6 +64,7 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         TravelEntry entry = entries.get(position);
         holder.titleTextView.setText(entry.getTitle());
+        holder.titleTextView.setTextColor(fontColor);
 
         // Aplikuj styl kafelka
         if (holder.itemView instanceof androidx.cardview.widget.CardView) {
@@ -86,14 +89,24 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
         int pinsCount = entry.getMapPins() != null ? entry.getMapPins().size() : 0;
 
         holder.infoTextView.setText("📝 " + notesCount + " · 📷 " + photosCount + " · 📍 " + pinsCount);
+        holder.infoTextView.setTextColor(fontColor);
+        if (fontColor == android.graphics.Color.BLACK) {
+            holder.infoTextView.setAlpha(0.6f);
+        } else {
+            holder.infoTextView.setAlpha(0.8f);
+        }
 
         // Wyświetl tagi
         if (entry.getTags() != null && !entry.getTags().isEmpty()) {
             holder.tagsTextView.setVisibility(View.VISIBLE);
             holder.tagsTextView.setText("🏷️ " + String.join(", ", entry.getTags()));
+            holder.tagsTextView.setTextColor(fontColor);
         } else {
             holder.tagsTextView.setVisibility(View.GONE);
         }
+
+        holder.dragHandle.setColorFilter(fontColor);
+        holder.dragHandle.setAlpha(0.6f);
 
         holder.itemView.setOnClickListener(v -> listener.onEntryClick(entry));
         holder.itemView.setOnLongClickListener(v -> {

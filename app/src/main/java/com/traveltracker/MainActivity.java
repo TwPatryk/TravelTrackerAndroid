@@ -178,7 +178,7 @@ public class MainActivity extends AppCompatActivity {
         String[] keys = {"theme_color", "main_bg_path", "main_bg_color", "main_bg_opacity", "main_bg_scale_type",
                          "toolbar_bg_path", "toolbar_bg_color", "toolbar_bg_opacity", "toolbar_bg_scale_type",
                          "fab_bg_path", "fab_bg_color", "fab_bg_opacity", "fab_bg_scale_type",
-                         "item_bg_color", "item_bg_opacity"};
+                         "item_bg_color", "item_bg_opacity", "item_font_color"};
         for (String key : keys) {
             settings.put(key, dbHelper.getGlobalSetting(key));
         }
@@ -305,13 +305,15 @@ public class MainActivity extends AppCompatActivity {
             // 4. Items Style
             String iColorHex = settings.get("item_bg_color");
             String iOpacityStr = settings.get("item_bg_opacity");
-            android.util.Log.d("MainActivity", "Loading items style: color=" + iColorHex + ", opacity=" + iOpacityStr);
+            String iFontColorHex = settings.get("item_font_color");
+            android.util.Log.d("MainActivity", "Loading items style: color=" + iColorHex + ", opacity=" + iOpacityStr + ", font=" + iFontColorHex);
 
             int iColor = (iColorHex != null && !iColorHex.isEmpty()) ? safeParseColor(iColorHex, android.graphics.Color.WHITE) : android.graphics.Color.WHITE;
+            int iFontColor = (iFontColorHex != null && !iFontColorHex.isEmpty()) ? safeParseColor(iFontColorHex, android.graphics.Color.BLACK) : android.graphics.Color.BLACK;
             float iOpacity = 1.0f;
             try { if (iOpacityStr != null) iOpacity = Float.parseFloat(iOpacityStr); } catch (Exception ignored) {}
             if (adapter != null) {
-                adapter.setItemStyle(iColor, iOpacity);
+                adapter.setItemStyle(iColor, iOpacity, iFontColor);
             }
 
         } catch (Exception e) {
@@ -325,7 +327,7 @@ public class MainActivity extends AppCompatActivity {
             String[] keys = {"theme_color", "main_bg_path", "main_bg_color", "main_bg_opacity", "main_bg_scale_type",
                              "toolbar_bg_path", "toolbar_bg_color", "toolbar_bg_opacity", "toolbar_bg_scale_type",
                              "fab_bg_path", "fab_bg_color", "fab_bg_opacity", "fab_bg_scale_type",
-                             "item_bg_color", "item_bg_opacity"};
+                             "item_bg_color", "item_bg_opacity", "item_font_color"};
             for (String key : keys) {
                 settings.put(key, dbHelper.getGlobalSetting(key));
             }
@@ -374,6 +376,60 @@ public class MainActivity extends AppCompatActivity {
         else if ("FIT_XY".equals(currentScale)) rgScaleType.check(R.id.rb_fit_xy);
         else rgScaleType.check(R.id.rb_center_crop);
 
+        if ("item_bg_".equals(prefix)) {
+            rgScaleType.setVisibility(android.view.View.GONE);
+            btnSelect.setVisibility(android.view.View.GONE);
+            
+            android.widget.TextView tvFontTitle = new android.widget.TextView(this);
+            tvFontTitle.setText("Font Color");
+            tvFontTitle.setPadding(0, (int)(16 * getResources().getDisplayMetrics().density), 0, 0);
+            ((android.view.ViewGroup)dialogView).addView(tvFontTitle, ((android.view.ViewGroup)dialogView).indexOfChild(btnClear));
+
+            android.widget.RadioGroup rgFontColor = new android.widget.RadioGroup(this);
+            rgFontColor.setOrientation(android.widget.RadioGroup.HORIZONTAL);
+            
+            android.widget.RadioButton rbBlack = new android.widget.RadioButton(this);
+            rbBlack.setText("Black");
+            rbBlack.setId(android.view.View.generateViewId());
+            
+            android.widget.RadioButton rbWhite = new android.widget.RadioButton(this);
+            rbWhite.setText("White");
+            rbWhite.setId(android.view.View.generateViewId());
+            
+            rgFontColor.addView(rbBlack);
+            rgFontColor.addView(rbWhite);
+            
+            String currentFontColor = dbHelper.getGlobalSetting("item_font_color");
+            if ("#FFFFFFFF".equalsIgnoreCase(currentFontColor)) rgFontColor.check(rbWhite.getId());
+            else rgFontColor.check(rbBlack.getId());
+            
+            ((android.view.ViewGroup)dialogView).addView(rgFontColor, ((android.view.ViewGroup)dialogView).indexOfChild(btnClear));
+            
+            dialog.setOnDismissListener(d -> {
+                float opacity = seekBar.getProgress() / 100f;
+                dbHelper.setGlobalSetting(prefix + "opacity", String.valueOf(opacity));
+                
+                int checkedFontId = rgFontColor.getCheckedRadioButtonId();
+                if (checkedFontId == rbWhite.getId()) dbHelper.setGlobalSetting("item_font_color", "#FFFFFFFF");
+                else if (checkedFontId == rbBlack.getId()) dbHelper.setGlobalSetting("item_font_color", "#FF000000");
+
+                applyBackgroundSettings();
+            });
+        } else {
+            dialog.setOnDismissListener(d -> {
+                float opacity = seekBar.getProgress() / 100f;
+                dbHelper.setGlobalSetting(prefix + "opacity", String.valueOf(opacity));
+                
+                String selectedScale = "CENTER_CROP";
+                int checkedId = rgScaleType.getCheckedRadioButtonId();
+                if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
+                else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
+                
+                dbHelper.setGlobalSetting(prefix + "scale_type", selectedScale);
+                applyBackgroundSettings();
+            });
+        }
+
         btnSelect.setOnClickListener(v -> {
             if ("toolbar_bg_".equals(prefix)) {
                 toolbarBackgroundPickerLauncher.launch(new String[]{"image/*"});
@@ -393,21 +449,14 @@ public class MainActivity extends AppCompatActivity {
         btnClear.setOnClickListener(v -> {
             dbHelper.setGlobalSetting(prefix + "path", null);
             dbHelper.setGlobalSetting(prefix + "color", null);
+            dbHelper.setGlobalSetting(prefix + "opacity", "1.0");
+            if ("item_bg_".equals(prefix)) {
+                dbHelper.setGlobalSetting("item_font_color", "#FF000000");
+            } else {
+                dbHelper.setGlobalSetting(prefix + "scale_type", "CENTER_CROP");
+            }
             applyBackgroundSettings();
             dialog.dismiss();
-        });
-
-        dialog.setOnDismissListener(d -> {
-            float opacity = seekBar.getProgress() / 100f;
-            dbHelper.setGlobalSetting(prefix + "opacity", String.valueOf(opacity));
-            
-            String selectedScale = "CENTER_CROP";
-            int checkedId = rgScaleType.getCheckedRadioButtonId();
-            if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
-            else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
-            
-            dbHelper.setGlobalSetting(prefix + "scale_type", selectedScale);
-            applyBackgroundSettings();
         });
 
         dialog.show();

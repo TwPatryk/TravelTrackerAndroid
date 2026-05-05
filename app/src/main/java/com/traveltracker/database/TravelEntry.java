@@ -15,6 +15,9 @@ public class TravelEntry {
     private String backgroundColor;
     private float backgroundOpacity = 1.0f;
     private String backgroundScaleType = "CENTER_CROP";
+    private String itemsBackgroundColor;
+    private float itemsBackgroundOpacity = 1.0f;
+    private String itemsFontColor;
 
     // Getters i Setters
     public long getId() { return id; }
@@ -52,4 +55,13 @@ public class TravelEntry {
 
     public String getBackgroundScaleType() { return backgroundScaleType; }
     public void setBackgroundScaleType(String backgroundScaleType) { this.backgroundScaleType = backgroundScaleType; }
+
+    public String getItemsBackgroundColor() { return itemsBackgroundColor; }
+    public void setItemsBackgroundColor(String itemsBackgroundColor) { this.itemsBackgroundColor = itemsBackgroundColor; }
+
+    public float getItemsBackgroundOpacity() { return itemsBackgroundOpacity; }
+    public void setItemsBackgroundOpacity(float itemsBackgroundOpacity) { this.itemsBackgroundOpacity = itemsBackgroundOpacity; }
+
+    public String getItemsFontColor() { return itemsFontColor; }
+    public void setItemsFontColor(String itemsFontColor) { this.itemsFontColor = itemsFontColor; }
 }

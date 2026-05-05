@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        android:id="@+id/dialog_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Items Style Settings"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Background Color"/>
+
+    <Button
+        android:id="@+id/btn_select_item_bg_color"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pick Background Color"
+        android:layout_marginTop="4dp"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Background Opacity"
+        android:layout_marginTop="16dp"/>
+
+    <SeekBar
+        android:id="@+id/seekbar_item_opacity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="100"
+        android:progress="100"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Font Color"
+        android:layout_marginTop="16dp"/>
+
+    <Button
+        android:id="@+id/btn_select_item_font_color"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pick Font Color"
+        android:layout_marginTop="4dp"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
+
+    <Button
+        android:id="@+id/btn_reset_items_style"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Reset to Global"
+        android:textColor="@android:color/holo_red_dark"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_marginTop="16dp"/>
+
+</LinearLayout>

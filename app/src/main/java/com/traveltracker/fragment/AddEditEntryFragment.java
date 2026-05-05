@@ -186,20 +186,8 @@ public class AddEditEntryFragment extends DialogFragment {
         backgroundImageView = view.findViewById(R.id.entry_background_image);
         backgroundOverlay = view.findViewById(R.id.entry_background_overlay);
 
-        // Load global item styles
-        String bgColorHex = dbHelper.getGlobalSetting("item_bg_color");
-        String opacityStr = dbHelper.getGlobalSetting("item_bg_opacity");
-        String fontColorStr = dbHelper.getGlobalSetting("item_font_color");
-
-        if (bgColorHex != null && !bgColorHex.isEmpty()) {
-            try { itemBgColor = android.graphics.Color.parseColor(bgColorHex); } catch (Exception ignored) {}
-        }
-        if (opacityStr != null && !opacityStr.isEmpty()) {
-            try { itemBgOpacity = Float.parseFloat(opacityStr); } catch (Exception ignored) {}
-        }
-        if (fontColorStr != null && !fontColorStr.isEmpty()) {
-            try { itemFontColor = android.graphics.Color.parseColor(fontColorStr); } catch (Exception ignored) {}
-        }
+        // Load settings: prefer entry-specific, fallback to global
+        loadStyleSettings();
 
         itemsRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         itemsAdapter = new ItemsAdapter();
@@ -236,6 +224,7 @@ public class AddEditEntryFragment extends DialogFragment {
         Button btnSave = view.findViewById(R.id.btn_save_entry);
         Button btnCancel = view.findViewById(R.id.btn_cancel_entry);
         Button btnEditBg = view.findViewById(R.id.btn_edit_background);
+        Button btnEditItemsStyle = view.findViewById(R.id.btn_edit_items_style);
 
         // Apply theme color to buttons
         applyThemeToUI(view);
@@ -284,6 +273,14 @@ public class AddEditEntryFragment extends DialogFragment {
             showBackgroundSettingsDialog();
         });
 
+        btnEditItemsStyle.setOnClickListener(v -> {
+            if (currentEntry == null) {
+                Toast.makeText(getContext(), "Please save the entry first to set items style", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            showItemsStyleSettingsDialog();
+        });
+
         btnSave.setOnClickListener(v -> saveEntry());
         btnCancel.setOnClickListener(v -> dismiss());
 
@@ -306,6 +303,52 @@ public class AddEditEntryFragment extends DialogFragment {
         }
     }
 
+    private void loadStyleSettings() {
+        // Default global values
+        String gBgColorHex = dbHelper.getGlobalSetting("item_bg_color");
+        String gOpacityStr = dbHelper.getGlobalSetting("item_bg_opacity");
+        String gFontColorStr = dbHelper.getGlobalSetting("item_font_color");
+
+        int globalBgColor = android.graphics.Color.WHITE;
+        float globalOpacity = 1.0f;
+        int globalFontColor = android.graphics.Color.BLACK;
+
+        if (gBgColorHex != null && !gBgColorHex.isEmpty()) {
+            try { globalBgColor = android.graphics.Color.parseColor(gBgColorHex); } catch (Exception ignored) {}
+        }
+        if (gOpacityStr != null && !gOpacityStr.isEmpty()) {
+            try { globalOpacity = Float.parseFloat(gOpacityStr); } catch (Exception ignored) {}
+        }
+        if (gFontColorStr != null && !gFontColorStr.isEmpty()) {
+            try { globalFontColor = android.graphics.Color.parseColor(gFontColorStr); } catch (Exception ignored) {}
+        }
+
+        // Entry specific values
+        if (currentEntry != null) {
+            String eBgColorHex = currentEntry.getItemsBackgroundColor();
+            float eOpacity = currentEntry.getItemsBackgroundOpacity();
+            String eFontColorHex = currentEntry.getItemsFontColor();
+
+            if (eBgColorHex != null && !eBgColorHex.isEmpty()) {
+                try { itemBgColor = android.graphics.Color.parseColor(eBgColorHex); } catch (Exception ignored) {}
+            } else {
+                itemBgColor = globalBgColor;
+            }
+
+            itemBgOpacity = eOpacity; // Default is 1.0f in TravelEntry if not set
+
+            if (eFontColorHex != null && !eFontColorHex.isEmpty()) {
+                try { itemFontColor = android.graphics.Color.parseColor(eFontColorHex); } catch (Exception ignored) {}
+            } else {
+                itemFontColor = globalFontColor;
+            }
+        } else {
+            itemBgColor = globalBgColor;
+            itemBgOpacity = globalOpacity;
+            itemFontColor = globalFontColor;
+        }
+    }
+
     private void applyThemeToUI(View view) {
         int themeColor = getThemeColor();
         android.content.res.ColorStateList themeTint = android.content.res.ColorStateList.valueOf(themeColor);
@@ -313,10 +356,9 @@ public class AddEditEntryFragment extends DialogFragment {
 
         titleInput.setTextColor(itemFontColor);
         tagsInput.setTextColor(itemFontColor);
-        titleInput.setHintTextColor(itemFontColor & 0x80FFFFFF); // 50% opacity for hint
+        titleInput.setHintTextColor(itemFontColor & 0x80FFFFFF); 
         tagsInput.setHintTextColor(itemFontColor & 0x80FFFFFF);
 
-        // Apply background style to inputs if we want them to match cards
         int alpha = Math.round(itemBgOpacity * 255);
         int colorWithAlpha = android.graphics.Color.argb(
                 alpha,
@@ -324,18 +366,10 @@ public class AddEditEntryFragment extends DialogFragment {
                 android.graphics.Color.green(itemBgColor),
                 android.graphics.Color.blue(itemBgColor)
         );
+        
+        // Apply background style to inputs
         titleInput.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorWithAlpha));
         tagsInput.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorWithAlpha));
-        
-        // Use a semi-transparent version of the color for the background if it's too bright or dark
-        // but for now, let's just use the selected card color for the input backgrounds as well
-        // We might want to add a bit of padding or rounded corners if possible via code
-        if (titleInput.getBackground() instanceof android.graphics.drawable.GradientDrawable) {
-             ((android.graphics.drawable.GradientDrawable)titleInput.getBackground()).setColor(colorWithAlpha);
-        }
-        if (tagsInput.getBackground() instanceof android.graphics.drawable.GradientDrawable) {
-             ((android.graphics.drawable.GradientDrawable)tagsInput.getBackground()).setColor(colorWithAlpha);
-        }
 
         com.google.android.material.button.MaterialButton btnAddNote = view.findViewById(R.id.btn_add_note);
         com.google.android.material.button.MaterialButton btnAddPhoto = view.findViewById(R.id.btn_add_photo);
@@ -343,6 +377,7 @@ public class AddEditEntryFragment extends DialogFragment {
         com.google.android.material.button.MaterialButton btnAddTrack = view.findViewById(R.id.btn_add_track);
         Button btnSave = view.findViewById(R.id.btn_save_entry);
         com.google.android.material.button.MaterialButton btnEditBg = view.findViewById(R.id.btn_edit_background);
+        com.google.android.material.button.MaterialButton btnEditItemsStyle = view.findViewById(R.id.btn_edit_items_style);
 
         if (btnAddNote != null) {
             btnAddNote.setBackgroundTintList(themeTint);
@@ -373,8 +408,12 @@ public class AddEditEntryFragment extends DialogFragment {
             btnEditBg.setTextColor(whiteTint);
             btnEditBg.setIconTint(whiteTint);
         }
+        if (btnEditItemsStyle != null) {
+            btnEditItemsStyle.setBackgroundTintList(themeTint);
+            btnEditItemsStyle.setTextColor(whiteTint);
+            btnEditItemsStyle.setIconTint(whiteTint);
+        }
 
-        // Apply delete icon colors in adapter if it exists
         if (itemsAdapter != null) {
             itemsAdapter.notifyDataSetChanged();
         }
@@ -662,6 +701,68 @@ public class AddEditEntryFragment extends DialogFragment {
         dialog.show();
     }
 
+    private void showItemsStyleSettingsDialog() {
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_items_style_settings, null);
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setView(dialogView)
+                .create();
+
+        android.widget.SeekBar seekBar = dialogView.findViewById(R.id.seekbar_item_opacity);
+        Button btnBgColor = dialogView.findViewById(R.id.btn_select_item_bg_color);
+        Button btnFontColor = dialogView.findViewById(R.id.btn_select_item_font_color);
+        Button btnReset = dialogView.findViewById(R.id.btn_reset_items_style);
+
+        seekBar.setProgress((int) (itemBgOpacity * 100));
+
+        btnBgColor.setOnClickListener(v -> {
+            new com.skydoves.colorpickerview.ColorPickerDialog.Builder(requireContext())
+                    .setTitle("Pick Item Background Color")
+                    .setPositiveButton("Select", (com.skydoves.colorpickerview.listeners.ColorEnvelopeListener) (envelope, fromUser) -> {
+                        String colorHex = "#" + envelope.getHexCode();
+                        currentEntry.setItemsBackgroundColor(colorHex);
+                        itemBgColor = android.graphics.Color.parseColor(colorHex);
+                        applyThemeToUI(getView());
+                    })
+                    .setNegativeButton("Cancel", (dialogInterface, i) -> dialogInterface.dismiss())
+                    .attachAlphaSlideBar(true)
+                    .attachBrightnessSlideBar(true)
+                    .show();
+        });
+
+        btnFontColor.setOnClickListener(v -> {
+            new com.skydoves.colorpickerview.ColorPickerDialog.Builder(requireContext())
+                    .setTitle("Pick Item Font Color")
+                    .setPositiveButton("Select", (com.skydoves.colorpickerview.listeners.ColorEnvelopeListener) (envelope, fromUser) -> {
+                        String colorHex = "#" + envelope.getHexCode();
+                        currentEntry.setItemsFontColor(colorHex);
+                        itemFontColor = android.graphics.Color.parseColor(colorHex);
+                        applyThemeToUI(getView());
+                    })
+                    .setNegativeButton("Cancel", (dialogInterface, i) -> dialogInterface.dismiss())
+                    .attachAlphaSlideBar(true)
+                    .attachBrightnessSlideBar(true)
+                    .show();
+        });
+
+        btnReset.setOnClickListener(v -> {
+            currentEntry.setItemsBackgroundColor(null);
+            currentEntry.setItemsFontColor(null);
+            currentEntry.setItemsBackgroundOpacity(1.0f);
+            loadStyleSettings();
+            applyThemeToUI(getView());
+            dialog.dismiss();
+        });
+
+        dialog.setOnDismissListener(d -> {
+            float opacity = seekBar.getProgress() / 100f;
+            currentEntry.setItemsBackgroundOpacity(opacity);
+            itemBgOpacity = opacity;
+            applyThemeToUI(getView());
+        });
+
+        dialog.show();
+    }
+
     private void updatePathsInList(File newDir) {
         for (EntryItem item : itemsList) {
             if (item instanceof Photo) {
@@ -813,7 +914,8 @@ public class AddEditEntryFragment extends DialogFragment {
 
         if (currentEntry != null) {
             dbHelper.updateEntryBackground(entryId, currentEntry.getBackgroundPath(), 
-                currentEntry.getBackgroundColor(), currentEntry.getBackgroundOpacity(), currentEntry.getBackgroundScaleType());
+                currentEntry.getBackgroundColor(), currentEntry.getBackgroundOpacity(), currentEntry.getBackgroundScaleType(),
+                currentEntry.getItemsBackgroundColor(), currentEntry.getItemsBackgroundOpacity(), currentEntry.getItemsFontColor());
         }
 
         if (onEntrySavedListener != null) {
@@ -912,8 +1014,8 @@ public class AddEditEntryFragment extends DialogFragment {
                 MapPin pin = (MapPin) item;
                 PinViewHolder h = (PinViewHolder) holder;
                 
-                // Zastosuj kolor motywu do ikonek lokalizacji
-                if (h.pinIcon != null) h.pinIcon.setImageTintList(themeTint);
+                // Zastosuj kolor motywu lub font color do ikonek lokalizacji
+                if (h.pinIcon != null) h.pinIcon.setImageTintList(android.content.res.ColorStateList.valueOf(itemFontColor));
                 if (h.btnOpenMap instanceof ImageButton) ((ImageButton) h.btnOpenMap).setImageTintList(themeTint);
 
                 h.labelInput.setText(pin.getLabel());
@@ -952,8 +1054,8 @@ public class AddEditEntryFragment extends DialogFragment {
                 RouteTrack track = (RouteTrack) item;
                 TrackViewHolder h = (TrackViewHolder) holder;
 
-                // Zastosuj kolor motywu do ikonek śladu
-                if (h.trackIcon != null) h.trackIcon.setImageTintList(themeTint);
+                // Zastosuj kolor motywu lub font color do ikonek śladu
+                if (h.trackIcon != null) h.trackIcon.setImageTintList(android.content.res.ColorStateList.valueOf(itemFontColor));
                 if (h.btnOpen instanceof ImageButton) ((ImageButton) h.btnOpen).setImageTintList(themeTint);
 
                 h.nameInput.setText(track.getName());

@@ -276,6 +276,20 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
+            // Toolbar Content Color
+            String tContentColorHex = settings.get("toolbar_content_color");
+            int tContentColor = (tContentColorHex != null && !tContentColorHex.isEmpty()) ? safeParseColor(tContentColorHex, android.graphics.Color.WHITE) : android.graphics.Color.WHITE;
+            
+            android.widget.TextView toolbarTitle = findViewById(R.id.toolbar_title);
+            android.widget.ImageButton menuButton = findViewById(R.id.menu_button);
+            android.widget.ImageButton filterButton = findViewById(R.id.filter_button);
+            android.widget.ImageView toolbarLogo = findViewById(R.id.toolbar_logo);
+            
+            if (toolbarTitle != null) toolbarTitle.setTextColor(tContentColor);
+            if (menuButton != null) menuButton.setColorFilter(tContentColor);
+            if (filterButton != null) filterButton.setColorFilter(tContentColor);
+            if (toolbarLogo != null) toolbarLogo.setColorFilter(tContentColor);
+
             // 3. FAB
             String fColorHex = settings.get("fab_bg_color");
             int fColor = (fColorHex != null && !fColorHex.isEmpty()) ? safeParseColor(fColorHex, themeColor) : themeColor;
@@ -331,6 +345,7 @@ public class MainActivity extends AppCompatActivity {
             for (String key : keys) {
                 settings.put(key, dbHelper.getGlobalSetting(key));
             }
+            settings.put("toolbar_content_color", dbHelper.getGlobalSetting("toolbar_content_color"));
             runOnUiThread(() -> applyBackgroundSettingsFromMap(settings));
         }).start();
     }
@@ -415,6 +430,48 @@ public class MainActivity extends AppCompatActivity {
 
                 applyBackgroundSettings();
             });
+        } else if ("toolbar_bg_".equals(prefix)) {
+            android.widget.TextView tvContentTitle = new android.widget.TextView(this);
+            tvContentTitle.setText("Content Color (Title & Icons)");
+            tvContentTitle.setPadding(0, (int)(16 * getResources().getDisplayMetrics().density), 0, 0);
+            ((android.view.ViewGroup)dialogView).addView(tvContentTitle, ((android.view.ViewGroup)dialogView).indexOfChild(btnClear));
+
+            android.widget.RadioGroup rgContentColor = new android.widget.RadioGroup(this);
+            rgContentColor.setOrientation(android.widget.RadioGroup.HORIZONTAL);
+            
+            android.widget.RadioButton rbBlack = new android.widget.RadioButton(this);
+            rbBlack.setText("Black");
+            rbBlack.setId(android.view.View.generateViewId());
+            
+            android.widget.RadioButton rbWhite = new android.widget.RadioButton(this);
+            rbWhite.setText("White");
+            rbWhite.setId(android.view.View.generateViewId());
+            
+            rgContentColor.addView(rbBlack);
+            rgContentColor.addView(rbWhite);
+            
+            String currentContentColor = dbHelper.getGlobalSetting("toolbar_content_color");
+            if ("#FF000000".equalsIgnoreCase(currentContentColor)) rgContentColor.check(rbBlack.getId());
+            else rgContentColor.check(rbWhite.getId());
+            
+            ((android.view.ViewGroup)dialogView).addView(rgContentColor, ((android.view.ViewGroup)dialogView).indexOfChild(btnClear));
+
+            dialog.setOnDismissListener(d -> {
+                float opacity = seekBar.getProgress() / 100f;
+                dbHelper.setGlobalSetting(prefix + "opacity", String.valueOf(opacity));
+                
+                String selectedScale = "CENTER_CROP";
+                int checkedId = rgScaleType.getCheckedRadioButtonId();
+                if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
+                else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
+                dbHelper.setGlobalSetting(prefix + "scale_type", selectedScale);
+
+                int checkedContentId = rgContentColor.getCheckedRadioButtonId();
+                if (checkedContentId == rbWhite.getId()) dbHelper.setGlobalSetting("toolbar_content_color", "#FFFFFFFF");
+                else if (checkedContentId == rbBlack.getId()) dbHelper.setGlobalSetting("toolbar_content_color", "#FF000000");
+
+                applyBackgroundSettings();
+            });
         } else {
             dialog.setOnDismissListener(d -> {
                 float opacity = seekBar.getProgress() / 100f;
@@ -452,6 +509,9 @@ public class MainActivity extends AppCompatActivity {
             dbHelper.setGlobalSetting(prefix + "opacity", "1.0");
             if ("item_bg_".equals(prefix)) {
                 dbHelper.setGlobalSetting("item_font_color", "#FF000000");
+            } else if ("toolbar_bg_".equals(prefix)) {
+                dbHelper.setGlobalSetting("toolbar_content_color", "#FFFFFFFF");
+                dbHelper.setGlobalSetting(prefix + "scale_type", "CENTER_CROP");
             } else {
                 dbHelper.setGlobalSetting(prefix + "scale_type", "CENTER_CROP");
             }

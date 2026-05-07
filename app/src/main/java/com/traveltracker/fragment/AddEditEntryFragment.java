@@ -167,7 +167,7 @@ public class AddEditEntryFragment extends DialogFragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setStyle(DialogFragment.STYLE_NORMAL, android.R.style.Theme_Material_Light_NoActionBar_Fullscreen);
+        setStyle(DialogFragment.STYLE_NORMAL, androidx.appcompat.R.style.Theme_AppCompat_Light_NoActionBar);
         dbHelper = DatabaseHelper.getInstance(getContext());
         if (getArguments() != null) {
             long entryId = getArguments().getLong(ARG_ENTRY_ID);
@@ -175,10 +175,32 @@ public class AddEditEntryFragment extends DialogFragment {
         }
     }
 
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (getDialog() != null && getDialog().getWindow() != null) {
+            android.view.Window window = getDialog().getWindow();
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+            window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            
+            // Fullscreen / Edge-to-edge
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false);
+            window.setStatusBarColor(android.graphics.Color.TRANSPARENT);
+            window.setNavigationBarColor(android.graphics.Color.TRANSPARENT);
+        }
+    }
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_add_edit_entry, container, false);
+
+        // Handle Insets for content padding
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
+            androidx.core.graphics.Insets systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+            v.setPadding(0, systemBars.top, 0, systemBars.bottom);
+            return insets;
+        });
 
         titleInput = view.findViewById(R.id.entry_title_input);
         tagsInput = view.findViewById(R.id.entry_tags_input);
@@ -351,7 +373,6 @@ public class AddEditEntryFragment extends DialogFragment {
 
     private void applyThemeToUI(View view) {
         int themeColor = getThemeColor();
-        android.content.res.ColorStateList themeTint = android.content.res.ColorStateList.valueOf(themeColor);
         android.content.res.ColorStateList whiteTint = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE);
 
         titleInput.setTextColor(itemFontColor);
@@ -367,51 +388,48 @@ public class AddEditEntryFragment extends DialogFragment {
                 android.graphics.Color.blue(itemBgColor)
         );
         
+        android.content.res.ColorStateList itemBgTint = android.content.res.ColorStateList.valueOf(colorWithAlpha);
+        android.content.res.ColorStateList itemFontTint = android.content.res.ColorStateList.valueOf(itemFontColor);
+
         // Apply background style to inputs
-        titleInput.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorWithAlpha));
-        tagsInput.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorWithAlpha));
+        titleInput.setBackgroundTintList(itemBgTint);
+        tagsInput.setBackgroundTintList(itemBgTint);
 
         com.google.android.material.button.MaterialButton btnAddNote = view.findViewById(R.id.btn_add_note);
         com.google.android.material.button.MaterialButton btnAddPhoto = view.findViewById(R.id.btn_add_photo);
         com.google.android.material.button.MaterialButton btnAddPin = view.findViewById(R.id.btn_add_pin);
         com.google.android.material.button.MaterialButton btnAddTrack = view.findViewById(R.id.btn_add_track);
         Button btnSave = view.findViewById(R.id.btn_save_entry);
+        com.google.android.material.button.MaterialButton btnCancel = view.findViewById(R.id.btn_cancel_entry);
         com.google.android.material.button.MaterialButton btnEditBg = view.findViewById(R.id.btn_edit_background);
         com.google.android.material.button.MaterialButton btnEditItemsStyle = view.findViewById(R.id.btn_edit_items_style);
 
-        if (btnAddNote != null) {
-            btnAddNote.setBackgroundTintList(themeTint);
-            btnAddNote.setTextColor(whiteTint);
-            btnAddNote.setIconTint(whiteTint);
+        // Helper to apply consistent style to buttons
+        java.util.function.Consumer<com.google.android.material.button.MaterialButton> styleButton = btn -> {
+            if (btn != null) {
+                btn.setBackgroundTintList(itemBgTint);
+                btn.setTextColor(itemFontTint);
+                btn.setIconTint(itemFontTint);
+                btn.setStrokeColor(itemFontTint);
+                btn.setStrokeWidth(1);
+            }
+        };
+
+        styleButton.accept(btnAddNote);
+        styleButton.accept(btnAddPhoto);
+        styleButton.accept(btnAddPin);
+        styleButton.accept(btnAddTrack);
+        styleButton.accept(btnEditBg);
+        styleButton.accept(btnEditItemsStyle);
+        
+        if (btnCancel != null) {
+            btnCancel.setBackgroundTintList(itemBgTint);
+            btnCancel.setTextColor(itemFontTint);
         }
-        if (btnAddPhoto != null) {
-            btnAddPhoto.setBackgroundTintList(themeTint);
-            btnAddPhoto.setTextColor(whiteTint);
-            btnAddPhoto.setIconTint(whiteTint);
-        }
-        if (btnAddPin != null) {
-            btnAddPin.setBackgroundTintList(themeTint);
-            btnAddPin.setTextColor(whiteTint);
-            btnAddPin.setIconTint(whiteTint);
-        }
-        if (btnAddTrack != null) {
-            btnAddTrack.setBackgroundTintList(themeTint);
-            btnAddTrack.setTextColor(whiteTint);
-            btnAddTrack.setIconTint(whiteTint);
-        }
+
         if (btnSave != null) {
-            btnSave.setBackgroundTintList(themeTint);
+            btnSave.setBackgroundTintList(android.content.res.ColorStateList.valueOf(themeColor));
             btnSave.setTextColor(android.graphics.Color.WHITE);
-        }
-        if (btnEditBg != null) {
-            btnEditBg.setBackgroundTintList(themeTint);
-            btnEditBg.setTextColor(whiteTint);
-            btnEditBg.setIconTint(whiteTint);
-        }
-        if (btnEditItemsStyle != null) {
-            btnEditItemsStyle.setBackgroundTintList(themeTint);
-            btnEditItemsStyle.setTextColor(whiteTint);
-            btnEditItemsStyle.setIconTint(whiteTint);
         }
 
         if (itemsAdapter != null) {

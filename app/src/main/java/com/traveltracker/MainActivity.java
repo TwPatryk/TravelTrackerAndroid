@@ -14,6 +14,7 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.ItemTouchHelper;
@@ -175,10 +176,10 @@ public class MainActivity extends AppCompatActivity {
     private void loadInitialData() {
         // 1. Load background settings first (heavy DB work)
         final java.util.Map<String, String> settings = new java.util.HashMap<>();
-        String[] keys = {"theme_color", "main_bg_path", "main_bg_color", "main_bg_opacity", "main_bg_scale_type",
-                         "toolbar_bg_path", "toolbar_bg_color", "toolbar_bg_opacity", "toolbar_bg_scale_type",
-                         "fab_bg_path", "fab_bg_color", "fab_bg_opacity", "fab_bg_scale_type",
-                         "item_bg_color", "item_bg_opacity", "item_font_color"};
+        String[] keys = {"theme_color", "main_bg_path", "main_bg_color", "main_bg_opacity", "main_bg_scale_type", "main_bg_offset_x", "main_bg_offset_y",
+                         "toolbar_bg_path", "toolbar_bg_color", "toolbar_bg_opacity", "toolbar_bg_scale_type", "toolbar_bg_offset_x", "toolbar_bg_offset_y",
+                         "fab_bg_path", "fab_bg_color", "fab_bg_opacity", "fab_bg_scale_type", "fab_bg_offset_x", "fab_bg_offset_y",
+                         "item_bg_color", "item_bg_opacity", "item_font_color", "toolbar_content_color"};
         for (String key : keys) {
             settings.put(key, dbHelper.getGlobalSetting(key));
         }
@@ -215,6 +216,8 @@ public class MainActivity extends AppCompatActivity {
             String colorHex = settings.get("main_bg_color");
             String opacityStr = settings.get("main_bg_opacity");
             String scaleTypeStr = settings.get("main_bg_scale_type");
+            float offsetX = safeParseFloat(settings.get("main_bg_offset_x"), 0.5f);
+            float offsetY = safeParseFloat(settings.get("main_bg_offset_y"), 0.5f);
 
             if (path != null && !path.isEmpty()) {
                 Uri uri = Uri.parse(path);
@@ -222,14 +225,64 @@ public class MainActivity extends AppCompatActivity {
                     getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 } catch (Exception ignored) {}
 
-                Glide.with(this).load(uri).apply(bgOptions).into(backgroundImageView);
+                com.bumptech.glide.RequestBuilder<android.graphics.drawable.Drawable> requestBuilder = 
+                        Glide.with(this).load(uri).apply(bgOptions);
+                
                 backgroundImageView.setVisibility(android.view.View.VISIBLE);
                 backgroundImageView.setScaleType(getScaleType(scaleTypeStr));
                 
+                if (getScaleType(scaleTypeStr) == android.widget.ImageView.ScaleType.MATRIX || "CENTER_CROP".equals(scaleTypeStr)) {
+                    backgroundImageView.setScaleType(android.widget.ImageView.ScaleType.MATRIX);
+                    
+                    requestBuilder = requestBuilder.listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(@Nullable com.bumptech.glide.load.engine.GlideException e, Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target, boolean isFirstResource) {
+                            return false;
+                        }
+
+                        @Override
+                        public boolean onResourceReady(android.graphics.drawable.Drawable resource, Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target, com.bumptech.glide.load.DataSource dataSource, boolean isFirstResource) {
+                    backgroundImageView.post(() -> {
+                        android.graphics.Matrix matrix = new android.graphics.Matrix();
+                        float viewWidth = backgroundImageView.getWidth();
+                        float viewHeight = backgroundImageView.getHeight();
+                        if (viewWidth > 0 && viewHeight > 0) {
+                            float drawableWidth = resource.getIntrinsicWidth();
+                            float drawableHeight = resource.getIntrinsicHeight();
+                            float scale = Math.max(viewWidth / drawableWidth, viewHeight / drawableHeight);
+                            matrix.setScale(scale, scale);
+                            float finalOffsetX = (viewWidth - drawableWidth * scale) * offsetX;
+                            float finalOffsetY = (viewHeight - drawableHeight * scale) * offsetY;
+                            matrix.postTranslate(finalOffsetX, finalOffsetY);
+                            backgroundImageView.setImageMatrix(matrix);
+                        }
+                    });
+                            return false;
+                        }
+                    });
+
+                    backgroundImageView.post(() -> {
+                        android.graphics.Matrix matrix = new android.graphics.Matrix();
+                        float viewWidth = backgroundImageView.getWidth();
+                        float viewHeight = backgroundImageView.getHeight();
+                        if (backgroundImageView.getDrawable() != null && viewWidth > 0 && viewHeight > 0) {
+                            float drawableWidth = backgroundImageView.getDrawable().getIntrinsicWidth();
+                            float drawableHeight = backgroundImageView.getDrawable().getIntrinsicHeight();
+                            float scale = Math.max(viewWidth / drawableWidth, viewHeight / drawableHeight);
+                            matrix.setScale(scale, scale);
+                            float finalOffsetX = (viewWidth - drawableWidth * scale) * offsetX;
+                            float finalOffsetY = (viewHeight - drawableHeight * scale) * offsetY;
+                            matrix.postTranslate(finalOffsetX, finalOffsetY);
+                            backgroundImageView.setImageMatrix(matrix);
+                        }
+                    });
+                }
+                
+                requestBuilder.into(backgroundImageView);
+
                 if (mainBackgroundOverlay != null) {
                     mainBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
-                    float opacity = 1.0f;
-                    try { if (opacityStr != null) opacity = Float.parseFloat(opacityStr); } catch (Exception ignored) {}
+                    float opacity = safeParseFloat(opacityStr, 1.0f);
                     mainBackgroundOverlay.setAlpha(1.0f - opacity);
                     mainBackgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
                 }
@@ -250,21 +303,85 @@ public class MainActivity extends AppCompatActivity {
             String tPath = settings.get("toolbar_bg_path");
             String tColorHex = settings.get("toolbar_bg_color");
             String tScaleTypeStr = settings.get("toolbar_bg_scale_type");
+            float tOffsetX = safeParseFloat(settings.get("toolbar_bg_offset_x"), 0.5f);
+            float tOffsetY = safeParseFloat(settings.get("toolbar_bg_offset_y"), 0.5f);
             int tColor = (tColorHex != null && !tColorHex.isEmpty()) ? safeParseColor(tColorHex, themeColor) : themeColor;
             
             getWindow().setStatusBarColor(tColor);
             if (toolbar != null) toolbar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
 
             if (tPath != null && !tPath.isEmpty()) {
-                Glide.with(this).load(Uri.parse(tPath)).apply(bgOptions).into(toolbarBackgroundImageView);
+                com.bumptech.glide.RequestBuilder<android.graphics.drawable.Drawable> tRequestBuilder = 
+                        Glide.with(this).load(Uri.parse(tPath)).apply(bgOptions);
+                
                 toolbarBackgroundImageView.setVisibility(android.view.View.VISIBLE);
                 toolbarBackgroundImageView.setScaleType(getScaleType(tScaleTypeStr));
+                
+                if (getScaleType(tScaleTypeStr) == android.widget.ImageView.ScaleType.MATRIX || "CENTER_CROP".equals(tScaleTypeStr)) {
+                    toolbarBackgroundImageView.setScaleType(android.widget.ImageView.ScaleType.MATRIX);
+                    
+                    tRequestBuilder = tRequestBuilder.listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(@Nullable com.bumptech.glide.load.engine.GlideException e, Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target, boolean isFirstResource) {
+                            return false;
+                        }
+
+                        @Override
+                        public boolean onResourceReady(android.graphics.drawable.Drawable resource, Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target, com.bumptech.glide.load.DataSource dataSource, boolean isFirstResource) {
+                            toolbarBackgroundImageView.post(() -> {
+                        android.graphics.Matrix matrix = new android.graphics.Matrix();
+                        float viewWidth = toolbarBackgroundImageView.getWidth();
+                        float viewHeight = toolbarBackgroundImageView.getHeight();
+                        if (viewWidth > 0 && viewHeight > 0) {
+                            float drawableWidth = resource.getIntrinsicWidth();
+                            float drawableHeight = resource.getIntrinsicHeight();
+                            float scale = Math.max(viewWidth / drawableWidth, viewHeight / drawableHeight);
+                            
+                            // Wymuszenie możliwości przesuwania poziomego dla toolbara
+                            if (toolbarBackgroundImageView.getId() == R.id.toolbar_background_image && (drawableWidth * scale) <= viewWidth * 1.1f) {
+                                scale = scale * 1.5f;
+                            }
+                            
+                            matrix.setScale(scale, scale);
+                            float finalOffsetX = (viewWidth - drawableWidth * scale) * tOffsetX;
+                            float finalOffsetY = (viewHeight - drawableHeight * scale) * tOffsetY;
+                            matrix.postTranslate(finalOffsetX, finalOffsetY);
+                            toolbarBackgroundImageView.setImageMatrix(matrix);
+                        }
+                    });
+                            return false;
+                        }
+                    });
+
+                    toolbarBackgroundImageView.post(() -> {
+                        android.graphics.Matrix matrix = new android.graphics.Matrix();
+                        float viewWidth = toolbarBackgroundImageView.getWidth();
+                        float viewHeight = toolbarBackgroundImageView.getHeight();
+                        if (toolbarBackgroundImageView.getDrawable() != null && viewWidth > 0 && viewHeight > 0) {
+                            float drawableWidth = toolbarBackgroundImageView.getDrawable().getIntrinsicWidth();
+                            float drawableHeight = toolbarBackgroundImageView.getDrawable().getIntrinsicHeight();
+                            float scale = Math.max(viewWidth / drawableWidth, viewHeight / drawableHeight);
+                            
+                            // Wymuszenie możliwości przesuwania poziomego dla toolbara
+                            if ((drawableWidth * scale) <= viewWidth * 1.1f) {
+                                scale = scale * 1.5f;
+                            }
+                            
+                            matrix.setScale(scale, scale);
+                            float finalOffsetX = (viewWidth - drawableWidth * scale) * tOffsetX;
+                            float finalOffsetY = (viewHeight - drawableHeight * scale) * tOffsetY;
+                            matrix.postTranslate(finalOffsetX, finalOffsetY);
+                            toolbarBackgroundImageView.setImageMatrix(matrix);
+                        }
+                    });
+                }
+                
+                tRequestBuilder.into(toolbarBackgroundImageView);
+
                 if (toolbarBackgroundOverlay != null) {
                     toolbarBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
                     toolbarBackgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
-                    float tOpacity = 1.0f;
-                    String tOpacityStr = settings.get("toolbar_bg_opacity");
-                    try { if (tOpacityStr != null) tOpacity = Float.parseFloat(tOpacityStr); } catch (Exception ignored) {}
+                    float tOpacity = safeParseFloat(settings.get("toolbar_bg_opacity"), 1.0f);
                     toolbarBackgroundOverlay.setAlpha(1.0f - tOpacity);
                 }
             } else {
@@ -297,15 +414,68 @@ public class MainActivity extends AppCompatActivity {
 
             String fPath = settings.get("fab_bg_path");
             String fScaleTypeStr = settings.get("fab_bg_scale_type");
+            float fOffsetX = safeParseFloat(settings.get("fab_bg_offset_x"), 0.5f);
+            float fOffsetY = safeParseFloat(settings.get("fab_bg_offset_y"), 0.5f);
+
             if (fPath != null && !fPath.isEmpty()) {
-                Glide.with(this).load(Uri.parse(fPath)).apply(bgOptions).into(fabBackgroundImageView);
+                com.bumptech.glide.RequestBuilder<android.graphics.drawable.Drawable> fRequestBuilder = 
+                        Glide.with(this).load(Uri.parse(fPath)).apply(bgOptions);
+                
                 fabBackgroundImageView.setVisibility(android.view.View.VISIBLE);
                 fabBackgroundImageView.setScaleType(getScaleType(fScaleTypeStr));
+                
+                if (getScaleType(fScaleTypeStr) == android.widget.ImageView.ScaleType.MATRIX || "CENTER_CROP".equals(fScaleTypeStr)) {
+                    fabBackgroundImageView.setScaleType(android.widget.ImageView.ScaleType.MATRIX);
+                    
+                    fRequestBuilder = fRequestBuilder.listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(@Nullable com.bumptech.glide.load.engine.GlideException e, Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target, boolean isFirstResource) {
+                            return false;
+                        }
+
+                        @Override
+                        public boolean onResourceReady(android.graphics.drawable.Drawable resource, Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target, com.bumptech.glide.load.DataSource dataSource, boolean isFirstResource) {
+                    fabBackgroundImageView.post(() -> {
+                        android.graphics.Matrix matrix = new android.graphics.Matrix();
+                        float viewWidth = fabBackgroundImageView.getWidth();
+                        float viewHeight = fabBackgroundImageView.getHeight();
+                        if (viewWidth > 0 && viewHeight > 0) {
+                            float drawableWidth = resource.getIntrinsicWidth();
+                            float drawableHeight = resource.getIntrinsicHeight();
+                            float scale = Math.max(viewWidth / drawableWidth, viewHeight / drawableHeight);
+                            matrix.setScale(scale, scale);
+                            float finalOffsetX = (viewWidth - drawableWidth * scale) * fOffsetX;
+                            float finalOffsetY = (viewHeight - drawableHeight * scale) * fOffsetY;
+                            matrix.postTranslate(finalOffsetX, finalOffsetY);
+                            fabBackgroundImageView.setImageMatrix(matrix);
+                        }
+                    });
+                            return false;
+                        }
+                    });
+
+                    fabBackgroundImageView.post(() -> {
+                        android.graphics.Matrix matrix = new android.graphics.Matrix();
+                        float viewWidth = fabBackgroundImageView.getWidth();
+                        float viewHeight = fabBackgroundImageView.getHeight();
+                        if (fabBackgroundImageView.getDrawable() != null && viewWidth > 0 && viewHeight > 0) {
+                            float drawableWidth = fabBackgroundImageView.getDrawable().getIntrinsicWidth();
+                            float drawableHeight = fabBackgroundImageView.getDrawable().getIntrinsicHeight();
+                            float scale = Math.max(viewWidth / drawableWidth, viewHeight / drawableHeight);
+                            matrix.setScale(scale, scale);
+                            float finalOffsetX = (viewWidth - drawableWidth * scale) * fOffsetX;
+                            float finalOffsetY = (viewHeight - drawableHeight * scale) * fOffsetY;
+                            matrix.postTranslate(finalOffsetX, finalOffsetY);
+                            fabBackgroundImageView.setImageMatrix(matrix);
+                        }
+                    });
+                }
+                
+                fRequestBuilder.into(fabBackgroundImageView);
+
                 if (fabBackgroundOverlay != null) {
                     fabBackgroundOverlay.setVisibility(android.view.View.VISIBLE);
-                    float fOpacity = 1.0f;
-                    String fOpacityStr = settings.get("fab_bg_opacity");
-                    try { if (fOpacityStr != null) fOpacity = Float.parseFloat(fOpacityStr); } catch (Exception ignored) {}
+                    float fOpacity = safeParseFloat(settings.get("fab_bg_opacity"), 1.0f);
                     fabBackgroundOverlay.setAlpha(1.0f - fOpacity);
                     fabBackgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
                 }
@@ -324,8 +494,7 @@ public class MainActivity extends AppCompatActivity {
 
             int iColor = (iColorHex != null && !iColorHex.isEmpty()) ? safeParseColor(iColorHex, android.graphics.Color.WHITE) : android.graphics.Color.WHITE;
             int iFontColor = (iFontColorHex != null && !iFontColorHex.isEmpty()) ? safeParseColor(iFontColorHex, android.graphics.Color.BLACK) : android.graphics.Color.BLACK;
-            float iOpacity = 1.0f;
-            try { if (iOpacityStr != null) iOpacity = Float.parseFloat(iOpacityStr); } catch (Exception ignored) {}
+            float iOpacity = safeParseFloat(iOpacityStr, 1.0f);
             if (adapter != null) {
                 adapter.setItemStyle(iColor, iOpacity, iFontColor);
             }
@@ -338,14 +507,14 @@ public class MainActivity extends AppCompatActivity {
     private void applyBackgroundSettings() {
         new Thread(() -> {
             final java.util.Map<String, String> settings = new java.util.HashMap<>();
-            String[] keys = {"theme_color", "main_bg_path", "main_bg_color", "main_bg_opacity", "main_bg_scale_type",
-                             "toolbar_bg_path", "toolbar_bg_color", "toolbar_bg_opacity", "toolbar_bg_scale_type",
-                             "fab_bg_path", "fab_bg_color", "fab_bg_opacity", "fab_bg_scale_type",
-                             "item_bg_color", "item_bg_opacity", "item_font_color"};
+            String[] keys = {"theme_color", 
+                             "main_bg_path", "main_bg_color", "main_bg_opacity", "main_bg_scale_type", "main_bg_offset_x", "main_bg_offset_y",
+                             "toolbar_bg_path", "toolbar_bg_color", "toolbar_bg_opacity", "toolbar_bg_scale_type", "toolbar_bg_offset_x", "toolbar_bg_offset_y",
+                             "fab_bg_path", "fab_bg_color", "fab_bg_opacity", "fab_bg_scale_type", "fab_bg_offset_x", "fab_bg_offset_y",
+                             "item_bg_color", "item_bg_opacity", "item_font_color", "toolbar_content_color"};
             for (String key : keys) {
                 settings.put(key, dbHelper.getGlobalSetting(key));
             }
-            settings.put("toolbar_content_color", dbHelper.getGlobalSetting("toolbar_content_color"));
             runOnUiThread(() -> applyBackgroundSettingsFromMap(settings));
         }).start();
     }
@@ -353,6 +522,7 @@ public class MainActivity extends AppCompatActivity {
     private android.widget.ImageView.ScaleType getScaleType(String scaleTypeStr) {
         if ("FIT_CENTER".equals(scaleTypeStr)) return android.widget.ImageView.ScaleType.FIT_CENTER;
         if ("FIT_XY".equals(scaleTypeStr)) return android.widget.ImageView.ScaleType.FIT_XY;
+        if ("CENTER_CROP_CUSTOM".equals(scaleTypeStr)) return android.widget.ImageView.ScaleType.MATRIX;
         return android.widget.ImageView.ScaleType.CENTER_CROP;
     }
 
@@ -365,7 +535,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private float safeParseFloat(String value, float defaultValue) {
+        if (value == null || value.isEmpty()) return defaultValue;
+        try {
+            return Float.parseFloat(value);
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
     private void showBackgroundSettingsDialog(final String prefix) {
+        final boolean[] isCleared = {false};
         android.view.View dialogView = getLayoutInflater().inflate(R.layout.dialog_background_settings, null);
         androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setView(dialogView)
@@ -379,6 +559,10 @@ public class MainActivity extends AppCompatActivity {
 
         android.widget.SeekBar seekBar = dialogView.findViewById(R.id.seekbar_opacity);
         android.widget.RadioGroup rgScaleType = dialogView.findViewById(R.id.rg_scale_type);
+        android.widget.SeekBar seekOffsetX = dialogView.findViewById(R.id.seekbar_offset_x);
+        android.widget.SeekBar seekOffsetY = dialogView.findViewById(R.id.seekbar_offset_y);
+        android.view.View layoutOffsets = dialogView.findViewById(R.id.layout_offsets);
+
         Button btnSelect = dialogView.findViewById(R.id.btn_select_image);
         Button btnSelectColor = dialogView.findViewById(R.id.btn_select_color);
         Button btnClear = dialogView.findViewById(R.id.btn_clear_bg);
@@ -386,14 +570,90 @@ public class MainActivity extends AppCompatActivity {
         String currentOpacity = dbHelper.getGlobalSetting(prefix + "opacity");
         seekBar.setProgress((int) ((currentOpacity != null ? Float.parseFloat(currentOpacity) : 1.0f) * 100));
 
+        String currentOffsetX = dbHelper.getGlobalSetting(prefix + "offset_x");
+        seekOffsetX.setProgress((int) ((currentOffsetX != null ? Float.parseFloat(currentOffsetX) : 0.5f) * 100));
+        String currentOffsetY = dbHelper.getGlobalSetting(prefix + "offset_y");
+        seekOffsetY.setProgress((int) ((currentOffsetY != null ? Float.parseFloat(currentOffsetY) : 0.5f) * 100));
+
         String currentScale = dbHelper.getGlobalSetting(prefix + "scale_type");
-        if ("FIT_CENTER".equals(currentScale)) rgScaleType.check(R.id.rb_fit_center);
-        else if ("FIT_XY".equals(currentScale)) rgScaleType.check(R.id.rb_fit_xy);
-        else rgScaleType.check(R.id.rb_center_crop);
+        if ("FIT_CENTER".equals(currentScale)) {
+            rgScaleType.check(R.id.rb_fit_center);
+            if (layoutOffsets != null) layoutOffsets.setVisibility(android.view.View.GONE);
+        } else if ("FIT_XY".equals(currentScale)) {
+            rgScaleType.check(R.id.rb_fit_xy);
+            if (layoutOffsets != null) layoutOffsets.setVisibility(android.view.View.GONE);
+        } else {
+            rgScaleType.check(R.id.rb_center_crop);
+            if (layoutOffsets != null) layoutOffsets.setVisibility(android.view.View.VISIBLE);
+        }
+
+        seekBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) {
+                    float opacity = progress / 100f;
+                    android.view.View overlay = "toolbar_bg_".equals(prefix) ? toolbarBackgroundOverlay : 
+                                               ("fab_bg_".equals(prefix) ? fabBackgroundOverlay : mainBackgroundOverlay);
+                    if (overlay != null) {
+                        overlay.setAlpha(1.0f - opacity);
+                    }
+                }
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+        });
+
+        seekOffsetX.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) {
+                    float ox = progress / 100f;
+                    float oy = seekOffsetY.getProgress() / 100f;
+                    android.widget.ImageView targetIv = "toolbar_bg_".equals(prefix) ? toolbarBackgroundImageView : 
+                                                       ("fab_bg_".equals(prefix) ? fabBackgroundImageView : backgroundImageView);
+                    updateImageViewMatrix(targetIv, ox, oy);
+                }
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+        });
+
+        seekOffsetY.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) {
+                    float ox = seekOffsetX.getProgress() / 100f;
+                    float oy = progress / 100f;
+                    android.widget.ImageView targetIv = "toolbar_bg_".equals(prefix) ? toolbarBackgroundImageView : 
+                                                       ("fab_bg_".equals(prefix) ? fabBackgroundImageView : backgroundImageView);
+                    updateImageViewMatrix(targetIv, ox, oy);
+                }
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+        });
+
+        rgScaleType.setOnCheckedChangeListener((group, checkedId) -> {
+            if (checkedId == R.id.rb_center_crop) {
+                if (layoutOffsets != null) layoutOffsets.setVisibility(android.view.View.VISIBLE);
+            } else {
+                if (layoutOffsets != null) layoutOffsets.setVisibility(android.view.View.GONE);
+            }
+            
+            android.widget.ImageView targetIv = "toolbar_bg_".equals(prefix) ? toolbarBackgroundImageView : 
+                                               ("fab_bg_".equals(prefix) ? fabBackgroundImageView : backgroundImageView);
+            
+            android.widget.ImageView.ScaleType st = getScaleTypeByCheckedId(checkedId);
+            targetIv.setScaleType(st);
+            if (st == android.widget.ImageView.ScaleType.MATRIX) {
+                updateImageViewMatrix(targetIv, seekOffsetX.getProgress() / 100f, seekOffsetY.getProgress() / 100f);
+            }
+        });
 
         if ("item_bg_".equals(prefix)) {
             rgScaleType.setVisibility(android.view.View.GONE);
             btnSelect.setVisibility(android.view.View.GONE);
+            if (layoutOffsets != null) layoutOffsets.setVisibility(android.view.View.GONE);
             
             android.widget.TextView tvFontTitle = new android.widget.TextView(this);
             tvFontTitle.setText("Font Color");
@@ -421,6 +681,7 @@ public class MainActivity extends AppCompatActivity {
             ((android.view.ViewGroup)dialogView).addView(rgFontColor, ((android.view.ViewGroup)dialogView).indexOfChild(btnClear));
             
             dialog.setOnDismissListener(d -> {
+                if (isCleared[0]) return;
                 float opacity = seekBar.getProgress() / 100f;
                 dbHelper.setGlobalSetting(prefix + "opacity", String.valueOf(opacity));
                 
@@ -457,14 +718,18 @@ public class MainActivity extends AppCompatActivity {
             ((android.view.ViewGroup)dialogView).addView(rgContentColor, ((android.view.ViewGroup)dialogView).indexOfChild(btnClear));
 
             dialog.setOnDismissListener(d -> {
+                if (isCleared[0]) return;
                 float opacity = seekBar.getProgress() / 100f;
                 dbHelper.setGlobalSetting(prefix + "opacity", String.valueOf(opacity));
                 
-                String selectedScale = "CENTER_CROP";
+                String selectedScale = "CENTER_CROP_CUSTOM";
                 int checkedId = rgScaleType.getCheckedRadioButtonId();
                 if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
                 else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
                 dbHelper.setGlobalSetting(prefix + "scale_type", selectedScale);
+
+                dbHelper.setGlobalSetting(prefix + "offset_x", String.valueOf(seekOffsetX.getProgress() / 100f));
+                dbHelper.setGlobalSetting(prefix + "offset_y", String.valueOf(seekOffsetY.getProgress() / 100f));
 
                 int checkedContentId = rgContentColor.getCheckedRadioButtonId();
                 if (checkedContentId == rbWhite.getId()) dbHelper.setGlobalSetting("toolbar_content_color", "#FFFFFFFF");
@@ -472,17 +737,38 @@ public class MainActivity extends AppCompatActivity {
 
                 applyBackgroundSettings();
             });
-        } else {
+        } else if ("fab_bg_".equals(prefix)) {
             dialog.setOnDismissListener(d -> {
+                if (isCleared[0]) return;
                 float opacity = seekBar.getProgress() / 100f;
                 dbHelper.setGlobalSetting(prefix + "opacity", String.valueOf(opacity));
                 
-                String selectedScale = "CENTER_CROP";
+                String selectedScale = "CENTER_CROP_CUSTOM";
+                int checkedId = rgScaleType.getCheckedRadioButtonId();
+                if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
+                else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
+                dbHelper.setGlobalSetting(prefix + "scale_type", selectedScale);
+
+                dbHelper.setGlobalSetting(prefix + "offset_x", String.valueOf(seekOffsetX.getProgress() / 100f));
+                dbHelper.setGlobalSetting(prefix + "offset_y", String.valueOf(seekOffsetY.getProgress() / 100f));
+
+                applyBackgroundSettings();
+            });
+        } else {
+            dialog.setOnDismissListener(d -> {
+                if (isCleared[0]) return;
+                float opacity = seekBar.getProgress() / 100f;
+                dbHelper.setGlobalSetting(prefix + "opacity", String.valueOf(opacity));
+                
+                String selectedScale = "CENTER_CROP_CUSTOM";
                 int checkedId = rgScaleType.getCheckedRadioButtonId();
                 if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
                 else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
                 
                 dbHelper.setGlobalSetting(prefix + "scale_type", selectedScale);
+                dbHelper.setGlobalSetting(prefix + "offset_x", String.valueOf(seekOffsetX.getProgress() / 100f));
+                dbHelper.setGlobalSetting(prefix + "offset_y", String.valueOf(seekOffsetY.getProgress() / 100f));
+
                 applyBackgroundSettings();
             });
         }
@@ -504,9 +790,12 @@ public class MainActivity extends AppCompatActivity {
         });
 
         btnClear.setOnClickListener(v -> {
+            isCleared[0] = true;
             dbHelper.setGlobalSetting(prefix + "path", null);
             dbHelper.setGlobalSetting(prefix + "color", null);
             dbHelper.setGlobalSetting(prefix + "opacity", "1.0");
+            dbHelper.setGlobalSetting(prefix + "offset_x", "0.5");
+            dbHelper.setGlobalSetting(prefix + "offset_y", "0.5");
             if ("item_bg_".equals(prefix)) {
                 dbHelper.setGlobalSetting("item_font_color", "#FF000000");
             } else if ("toolbar_bg_".equals(prefix)) {
@@ -520,6 +809,48 @@ public class MainActivity extends AppCompatActivity {
         });
 
         dialog.show();
+    }
+
+    private android.widget.ImageView.ScaleType getScaleTypeByCheckedId(int checkedId) {
+        if (checkedId == R.id.rb_fit_center) return android.widget.ImageView.ScaleType.FIT_CENTER;
+        if (checkedId == R.id.rb_fit_xy) return android.widget.ImageView.ScaleType.FIT_XY;
+        return android.widget.ImageView.ScaleType.MATRIX;
+    }
+
+    private void updateImageViewMatrix(android.widget.ImageView imageView, float offsetX, float offsetY) {
+        if (imageView == null || imageView.getVisibility() != android.view.View.VISIBLE) return;
+        imageView.post(() -> {
+            android.graphics.drawable.Drawable drawable = imageView.getDrawable();
+            if (drawable == null) return;
+            
+            imageView.setScaleType(android.widget.ImageView.ScaleType.MATRIX);
+            android.graphics.Matrix matrix = new android.graphics.Matrix();
+            float viewWidth = imageView.getWidth();
+            float viewHeight = imageView.getHeight();
+            
+            if (viewWidth > 0 && viewHeight > 0) {
+                float drawableWidth = drawable.getIntrinsicWidth();
+                float drawableHeight = drawable.getIntrinsicHeight();
+                if (drawableWidth > 0 && drawableHeight > 0) {
+                    float scale = Math.max(viewWidth / drawableWidth, viewHeight / drawableHeight);
+                    
+                    // Wymuszenie możliwości przesuwania poziomego dla tła toolbara
+                    if (imageView.getId() == R.id.toolbar_background_image) {
+                        // Jeśli po standardowym przeskalowaniu obraz nie jest szerszy niż widok,
+                        // zwiększamy skalę, aby umożliwić ruch poziomy.
+                        if ((drawableWidth * scale) <= viewWidth * 1.1f) {
+                            scale = scale * 1.5f;
+                        }
+                    }
+                    
+                    matrix.setScale(scale, scale);
+                    float finalOffsetX = (viewWidth - drawableWidth * scale) * offsetX;
+                    float finalOffsetY = (viewHeight - drawableHeight * scale) * offsetY;
+                    matrix.postTranslate(finalOffsetX, finalOffsetY);
+                    imageView.setImageMatrix(matrix);
+                }
+            }
+        });
     }
 
     private void showColorChooserForPrefix(String prefix) {

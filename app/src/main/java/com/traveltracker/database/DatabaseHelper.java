@@ -14,7 +14,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static DatabaseHelper instance;
 
     private static final String DATABASE_NAME = "travel_tracker.db";
-    private static final int DATABASE_VERSION = 11;
+    private static final int DATABASE_VERSION = 13;
 
     // Tabela główna
     private static final String TABLE_ENTRIES = "entries";
@@ -26,6 +26,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_BG_COLOR = "bg_color";
     private static final String COLUMN_BG_OPACITY = "bg_opacity";
     private static final String COLUMN_BG_SCALE_TYPE = "bg_scale_type";
+    private static final String COLUMN_BG_OFFSET_X = "bg_offset_x";
+    private static final String COLUMN_BG_OFFSET_Y = "bg_offset_y";
     private static final String COLUMN_ITEMS_BG_COLOR = "item_bg_color";
     private static final String COLUMN_ITEMS_BG_OPACITY = "item_bg_opacity";
     private static final String COLUMN_ITEMS_FONT_COLOR = "item_font_color";
@@ -89,6 +91,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_BG_COLOR + " TEXT, " +
                 COLUMN_BG_OPACITY + " REAL DEFAULT 1.0, " +
                 COLUMN_BG_SCALE_TYPE + " TEXT DEFAULT 'CENTER_CROP', " +
+                COLUMN_BG_OFFSET_X + " REAL DEFAULT 0.5, " +
+                COLUMN_BG_OFFSET_Y + " REAL DEFAULT 0.5, " +
                 COLUMN_ITEMS_BG_COLOR + " TEXT, " +
                 COLUMN_ITEMS_BG_OPACITY + " REAL DEFAULT 1.0, " +
                 COLUMN_ITEMS_FONT_COLOR + " TEXT)";
@@ -198,10 +202,20 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
 
         if (oldVersion < 11) {
-            // Dodaj kolumny stylu elementów (liczba pojedyncza dla spójności z Xiaomi 13T i ustawieniami globalnymi)
             try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_ITEMS_BG_COLOR + " TEXT"); } catch (Exception ignored) {}
             try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_ITEMS_BG_OPACITY + " REAL DEFAULT 1.0"); } catch (Exception ignored) {}
             try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_ITEMS_FONT_COLOR + " TEXT"); } catch (Exception ignored) {}
+        }
+
+        if (oldVersion < 12) {
+            try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_OFFSET_X + " REAL DEFAULT 0.5"); } catch (Exception ignored) {}
+            try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_OFFSET_Y + " REAL DEFAULT 0.5"); } catch (Exception ignored) {}
+        }
+        if (oldVersion < 13) {
+             try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_BG_SCALE_TYPE + " TEXT DEFAULT 'CENTER_CROP'"); } catch (Exception ignored) {}
+             try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_ITEMS_BG_COLOR + " TEXT"); } catch (Exception ignored) {}
+             try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_ITEMS_BG_OPACITY + " REAL DEFAULT 1.0"); } catch (Exception ignored) {}
+             try { db.execSQL("ALTER TABLE " + TABLE_ENTRIES + " ADD COLUMN " + COLUMN_ITEMS_FONT_COLOR + " TEXT"); } catch (Exception ignored) {}
         }
     }
 
@@ -231,6 +245,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 entry.setBackgroundColor(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_COLOR)));
                 entry.setBackgroundOpacity(cursor.getFloat(cursor.getColumnIndexOrThrow(COLUMN_BG_OPACITY)));
                 entry.setBackgroundScaleType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_SCALE_TYPE)));
+                entry.setBackgroundOffsetX(cursor.getFloat(cursor.getColumnIndexOrThrow(COLUMN_BG_OFFSET_X)));
+                entry.setBackgroundOffsetY(cursor.getFloat(cursor.getColumnIndexOrThrow(COLUMN_BG_OFFSET_Y)));
                 entry.setItemsBackgroundColor(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ITEMS_BG_COLOR)));
                 entry.setItemsBackgroundOpacity(cursor.getFloat(cursor.getColumnIndexOrThrow(COLUMN_ITEMS_BG_OPACITY)));
                 entry.setItemsFontColor(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ITEMS_FONT_COLOR)));
@@ -264,6 +280,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             entry.setBackgroundColor(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_COLOR)));
             entry.setBackgroundOpacity(cursor.getFloat(cursor.getColumnIndexOrThrow(COLUMN_BG_OPACITY)));
             entry.setBackgroundScaleType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BG_SCALE_TYPE)));
+            entry.setBackgroundOffsetX(cursor.getFloat(cursor.getColumnIndexOrThrow(COLUMN_BG_OFFSET_X)));
+            entry.setBackgroundOffsetY(cursor.getFloat(cursor.getColumnIndexOrThrow(COLUMN_BG_OFFSET_Y)));
             entry.setItemsBackgroundColor(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ITEMS_BG_COLOR)));
             entry.setItemsBackgroundOpacity(cursor.getFloat(cursor.getColumnIndexOrThrow(COLUMN_ITEMS_BG_OPACITY)));
             entry.setItemsFontColor(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ITEMS_FONT_COLOR)));
@@ -466,13 +484,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return tags;
     }
 
-    public void updateEntryBackground(long id, String path, String color, float opacity, String scaleType, String itemsBg, float itemsOpacity, String itemsFont) {
+    public void updateEntryBackground(long id, String path, String color, float opacity, String scaleType, float offsetX, float offsetY, String itemsBg, float itemsOpacity, String itemsFont) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_BG_PATH, path);
         values.put(COLUMN_BG_COLOR, color);
         values.put(COLUMN_BG_OPACITY, opacity);
         values.put(COLUMN_BG_SCALE_TYPE, scaleType);
+        values.put(COLUMN_BG_OFFSET_X, offsetX);
+        values.put(COLUMN_BG_OFFSET_Y, offsetY);
         values.put(COLUMN_ITEMS_BG_COLOR, itemsBg);
         values.put(COLUMN_ITEMS_BG_OPACITY, itemsOpacity);
         values.put(COLUMN_ITEMS_FONT_COLOR, itemsFont);

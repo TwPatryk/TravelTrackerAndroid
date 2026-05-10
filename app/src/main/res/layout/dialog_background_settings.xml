@@ -72,6 +72,39 @@
             android:text="Stretch to Fill (Fit XY)"/>
     </RadioGroup>
 
+    <LinearLayout
+        android:id="@+id/layout_offsets"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Horizontal Position"/>
+
+        <SeekBar
+            android:id="@+id/seekbar_offset_x"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="100"
+            android:progress="50"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Vertical Position"
+            android:layout_marginTop="8dp"/>
+
+        <SeekBar
+            android:id="@+id/seekbar_offset_y"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="100"
+            android:progress="50"/>
+    </LinearLayout>
+
     <Button
         android:id="@+id/btn_clear_bg"
         android:layout_width="wrap_content"

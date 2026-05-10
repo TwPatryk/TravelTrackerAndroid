@@ -15,6 +15,8 @@ public class TravelEntry {
     private String backgroundColor;
     private float backgroundOpacity = 1.0f;
     private String backgroundScaleType = "CENTER_CROP";
+    private float backgroundOffsetX = 0.5f;
+    private float backgroundOffsetY = 0.5f;
     private String itemsBackgroundColor;
     private float itemsBackgroundOpacity = 1.0f;
     private String itemsFontColor;
@@ -55,6 +57,12 @@ public class TravelEntry {
 
     public String getBackgroundScaleType() { return backgroundScaleType; }
     public void setBackgroundScaleType(String backgroundScaleType) { this.backgroundScaleType = backgroundScaleType; }
+
+    public float getBackgroundOffsetX() { return backgroundOffsetX; }
+    public void setBackgroundOffsetX(float backgroundOffsetX) { this.backgroundOffsetX = backgroundOffsetX; }
+
+    public float getBackgroundOffsetY() { return backgroundOffsetY; }
+    public void setBackgroundOffsetY(float backgroundOffsetY) { this.backgroundOffsetY = backgroundOffsetY; }
 
     public String getItemsBackgroundColor() { return itemsBackgroundColor; }
     public void setItemsBackgroundColor(String itemsBackgroundColor) { this.itemsBackgroundColor = itemsBackgroundColor; }

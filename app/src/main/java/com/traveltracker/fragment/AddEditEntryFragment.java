@@ -169,9 +169,14 @@ public class AddEditEntryFragment extends DialogFragment {
         super.onCreate(savedInstanceState);
         setStyle(DialogFragment.STYLE_NORMAL, androidx.appcompat.R.style.Theme_AppCompat_Light_NoActionBar);
         dbHelper = DatabaseHelper.getInstance(getContext());
-        if (getArguments() != null) {
+        if (getArguments() != null && getArguments().containsKey(ARG_ENTRY_ID)) {
             long entryId = getArguments().getLong(ARG_ENTRY_ID);
             currentEntry = dbHelper.getEntryById(entryId);
+        }
+        
+        if (currentEntry == null) {
+            currentEntry = new TravelEntry();
+            currentEntry.setTitle("");
         }
     }
 
@@ -181,7 +186,7 @@ public class AddEditEntryFragment extends DialogFragment {
         if (getDialog() != null && getDialog().getWindow() != null) {
             android.view.Window window = getDialog().getWindow();
             window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-            window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.WHITE));
             
             // Fullscreen / Edge-to-edge
             androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false);
@@ -616,23 +621,72 @@ public class AddEditEntryFragment extends DialogFragment {
         String scaleTypeStr = currentEntry.getBackgroundScaleType();
 
         if (path != null && !path.isEmpty()) {
-            Glide.with(this)
+            com.bumptech.glide.RequestBuilder<android.graphics.drawable.Drawable> requestBuilder = Glide.with(this)
                     .load(Uri.parse(path))
-                    .error(android.R.drawable.ic_menu_report_image)
-                    .centerCrop() // Default scaling if none matches perfectly or as a base
-                    .into(backgroundImageView);
+                    .error(android.R.drawable.ic_menu_report_image);
             
             backgroundImageView.setVisibility(View.VISIBLE);
             backgroundImageView.setAlpha(1.0f);
             
-            // Set scale type AFTER load to ensure it's applied correctly
             if ("FIT_CENTER".equals(scaleTypeStr)) {
                 backgroundImageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
             } else if ("FIT_XY".equals(scaleTypeStr)) {
                 backgroundImageView.setScaleType(ImageView.ScaleType.FIT_XY);
+            } else if ("CENTER_CROP_CUSTOM".equals(scaleTypeStr) || "CENTER_CROP".equals(scaleTypeStr)) {
+                backgroundImageView.setScaleType(ImageView.ScaleType.MATRIX);
+                
+                final float offX = currentEntry.getBackgroundOffsetX();
+                final float offY = currentEntry.getBackgroundOffsetY();
+
+                requestBuilder = requestBuilder.listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
+                    @Override
+                    public boolean onLoadFailed(@Nullable com.bumptech.glide.load.engine.GlideException e, Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target, boolean isFirstResource) {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean onResourceReady(android.graphics.drawable.Drawable resource, Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target, com.bumptech.glide.load.DataSource dataSource, boolean isFirstResource) {
+                        backgroundImageView.post(() -> {
+                            android.graphics.Matrix matrix = new android.graphics.Matrix();
+                            float viewWidth = backgroundImageView.getWidth();
+                            float viewHeight = backgroundImageView.getHeight();
+                            if (viewWidth > 0 && viewHeight > 0) {
+                                float drawableWidth = resource.getIntrinsicWidth();
+                                float drawableHeight = resource.getIntrinsicHeight();
+                                float scale = Math.max(viewWidth / drawableWidth, viewHeight / drawableHeight);
+                                matrix.setScale(scale, scale);
+                                float finalOffsetX = (viewWidth - drawableWidth * scale) * offX;
+                                float finalOffsetY = (viewHeight - drawableHeight * scale) * offY;
+                                matrix.postTranslate(finalOffsetX, finalOffsetY);
+                                backgroundImageView.setImageMatrix(matrix);
+                            }
+                        });
+                        return false;
+                    }
+                });
+
+                // Also trigger it via post in case resource is already ready and doesn't trigger listener (or for initial layout)
+                backgroundImageView.post(() -> {
+                    android.graphics.Matrix matrix = new android.graphics.Matrix();
+                    float viewWidth = backgroundImageView.getWidth();
+                    float viewHeight = backgroundImageView.getHeight();
+                    android.graphics.drawable.Drawable drawable = backgroundImageView.getDrawable();
+                    if (drawable != null && viewWidth > 0 && viewHeight > 0) {
+                        float drawableWidth = drawable.getIntrinsicWidth();
+                        float drawableHeight = drawable.getIntrinsicHeight();
+                        float scale = Math.max(viewWidth / drawableWidth, viewHeight / drawableHeight);
+                        matrix.setScale(scale, scale);
+                        float finalOffsetX = (viewWidth - drawableWidth * scale) * offX;
+                        float finalOffsetY = (viewHeight - drawableHeight * scale) * offY;
+                        matrix.postTranslate(finalOffsetX, finalOffsetY);
+                        backgroundImageView.setImageMatrix(matrix);
+                    }
+                });
             } else {
                 backgroundImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
             }
+
+            requestBuilder.into(backgroundImageView);
 
             if (backgroundOverlay != null) {
                 backgroundOverlay.setVisibility(View.VISIBLE);
@@ -665,16 +719,53 @@ public class AddEditEntryFragment extends DialogFragment {
 
         android.widget.SeekBar seekBar = dialogView.findViewById(R.id.seekbar_opacity);
         android.widget.RadioGroup rgScaleType = dialogView.findViewById(R.id.rg_scale_type);
+        android.widget.SeekBar seekOffsetX = dialogView.findViewById(R.id.seekbar_offset_x);
+        android.widget.SeekBar seekOffsetY = dialogView.findViewById(R.id.seekbar_offset_y);
+        android.view.View layoutOffsets = dialogView.findViewById(R.id.layout_offsets);
         Button btnSelect = dialogView.findViewById(R.id.btn_select_image);
         Button btnColor = dialogView.findViewById(R.id.btn_select_color);
         Button btnClear = dialogView.findViewById(R.id.btn_clear_bg);
 
         seekBar.setProgress((int) (currentEntry.getBackgroundOpacity() * 100));
+        seekOffsetX.setProgress((int) (currentEntry.getBackgroundOffsetX() * 100));
+        seekOffsetY.setProgress((int) (currentEntry.getBackgroundOffsetY() * 100));
 
         String currentScale = currentEntry.getBackgroundScaleType();
-        if ("FIT_CENTER".equals(currentScale)) rgScaleType.check(R.id.rb_fit_center);
-        else if ("FIT_XY".equals(currentScale)) rgScaleType.check(R.id.rb_fit_xy);
-        else rgScaleType.check(R.id.rb_center_crop);
+        if ("FIT_CENTER".equals(currentScale)) {
+            rgScaleType.check(R.id.rb_fit_center);
+            if (layoutOffsets != null) layoutOffsets.setVisibility(View.GONE);
+        } else if ("FIT_XY".equals(currentScale)) {
+            rgScaleType.check(R.id.rb_fit_xy);
+            if (layoutOffsets != null) layoutOffsets.setVisibility(View.GONE);
+        } else {
+            rgScaleType.check(R.id.rb_center_crop);
+            if (layoutOffsets != null) layoutOffsets.setVisibility(View.VISIBLE);
+        }
+
+        dialog.setOnDismissListener(d -> {
+            float opacity = seekBar.getProgress() / 100f;
+            currentEntry.setBackgroundOpacity(opacity);
+            
+            int checkedId = rgScaleType.getCheckedRadioButtonId();
+            String selectedScale;
+            if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
+            else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
+            else selectedScale = "CENTER_CROP_CUSTOM";
+            
+            currentEntry.setBackgroundScaleType(selectedScale);
+            currentEntry.setBackgroundOffsetX(seekOffsetX.getProgress() / 100f);
+            currentEntry.setBackgroundOffsetY(seekOffsetY.getProgress() / 100f);
+            applyBackgroundSettings();
+        });
+
+        rgScaleType.setOnCheckedChangeListener((group, checkedId) -> {
+            if (checkedId == R.id.rb_center_crop) {
+                if (layoutOffsets != null) layoutOffsets.setVisibility(View.VISIBLE);
+            } else {
+                if (layoutOffsets != null) layoutOffsets.setVisibility(View.GONE);
+            }
+            applyBackgroundSettings();
+        });
 
         btnSelect.setOnClickListener(v -> {
             backgroundPickerLauncher.launch(new String[]{"image/*"});
@@ -703,17 +794,37 @@ public class AddEditEntryFragment extends DialogFragment {
             dialog.dismiss();
         });
 
-        dialog.setOnDismissListener(d -> {
-            float opacity = seekBar.getProgress() / 100f;
-            currentEntry.setBackgroundOpacity(opacity);
-            
-            String selectedScale = "CENTER_CROP";
-            int checkedId = rgScaleType.getCheckedRadioButtonId();
-            if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
-            else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
-            
-            currentEntry.setBackgroundScaleType(selectedScale);
-            applyBackgroundSettings();
+        seekOffsetX.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) {
+                    currentEntry.setBackgroundOffsetX(progress / 100f);
+                    applyBackgroundSettings();
+                }
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+        });
+
+        seekOffsetY.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) {
+                    currentEntry.setBackgroundOffsetY(progress / 100f);
+                    applyBackgroundSettings();
+                }
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+        });
+
+        seekBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) {
+                    currentEntry.setBackgroundOpacity(progress / 100f);
+                    applyBackgroundSettings();
+                }
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
         });
 
         dialog.show();
@@ -890,8 +1001,9 @@ public class AddEditEntryFragment extends DialogFragment {
         moveFilesToTargetDir(entryDir);
 
         long entryId;
-        if (currentEntry == null) {
+        if (currentEntry.getId() == 0) {
             entryId = dbHelper.insertEntry(title);
+            currentEntry.setId(entryId);
         } else {
             entryId = currentEntry.getId();
             dbHelper.updateEntryTitle(entryId, title);
@@ -930,11 +1042,10 @@ public class AddEditEntryFragment extends DialogFragment {
             }
         }
 
-        if (currentEntry != null) {
-            dbHelper.updateEntryBackground(entryId, currentEntry.getBackgroundPath(), 
-                currentEntry.getBackgroundColor(), currentEntry.getBackgroundOpacity(), currentEntry.getBackgroundScaleType(),
-                currentEntry.getItemsBackgroundColor(), currentEntry.getItemsBackgroundOpacity(), currentEntry.getItemsFontColor());
-        }
+        dbHelper.updateEntryBackground(entryId, currentEntry.getBackgroundPath(), 
+            currentEntry.getBackgroundColor(), currentEntry.getBackgroundOpacity(), currentEntry.getBackgroundScaleType(),
+            currentEntry.getBackgroundOffsetX(), currentEntry.getBackgroundOffsetY(),
+            currentEntry.getItemsBackgroundColor(), currentEntry.getItemsBackgroundOpacity(), currentEntry.getItemsFontColor());
 
         if (onEntrySavedListener != null) {
             onEntrySavedListener.onEntrySaved();

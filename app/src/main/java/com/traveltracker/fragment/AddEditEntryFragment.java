@@ -706,10 +706,15 @@ public class AddEditEntryFragment extends DialogFragment {
             }
         } else {
             backgroundImageView.setVisibility(View.GONE);
-            if (backgroundOverlay != null) backgroundOverlay.setVisibility(View.GONE);
+            if (backgroundOverlay != null) {
+                backgroundOverlay.setVisibility(View.VISIBLE);
+                backgroundOverlay.setAlpha(1.0f);
+                backgroundOverlay.setBackgroundColor(android.graphics.Color.WHITE);
+            }
             Glide.with(this).clear(backgroundImageView);
         }
     }
+
 
     private void showBackgroundSettingsDialog() {
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_background_settings, null);

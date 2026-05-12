@@ -93,4 +93,40 @@ Jeśli tło paska jest ustawione, kolor tematu jest tymczasowo zastępowany prze
 Dodano obsługę zapisywania i odczytywania nowych ustawień (toolbar_bg_path, toolbar_bg_opacity, toolbar_bg_scale_type) z bazy danych/ustawień globalnych.
 Teraz w lewym panelu znajdziesz dwa oddzielne przyciski: jeden do tła głównego, a drugi do tła górnego paska. Każdy z nich pozwala na wybór obrazu, ustawienie jego przezroczystości oraz trybu skalowania.
 
+-----------------------------------------------------------------------
+
+Refactoring MainActivity.java
+
+The refactoring of MainActivity.java is now complete. I have successfully moved the remaining UI utility methods to a dedicated utility class and fixed all identified compilation and layout issues.
+Key Improvements:
+1.
+Utility Extraction: Created UiUtils.java and moved the hideKeyboard logic there, further slimming down MainActivity.
+2.
+Code Cleanup:
+◦
+Simplified imports and removed unused ones.
+◦
+Converted selectedTags, allEntries, and filteredEntries to final lists for better practice.
+◦
+Refactored UiSettingsListener to use a clean lambda expression.
+3.
+Layout and Navigation Fixes:
+◦
+Updated activity_main.xml to include the missing main_content ID, enabling fragment transactions.
+◦
+Fully populated drawer_menu.xml with all necessary customization and backup options.
+◦
+Generated missing vector drawables (ic_place, ic_palette, ic_export, etc.) to ensure the UI renders correctly.
+4.
+Architectural Integrity:
+◦
+Switched from Intent-based navigation to Fragment-based navigation for AddEditEntryFragment, aligning with modern Android development patterns.
+◦
+Ensured DatabaseHelper uses the singleton pattern (getInstance) as intended.
+◦
+Verified the BackupManager callback correctly triggers UI refreshes on the main thread after a restore.
+MainActivity now functions as a high-level orchestrator, with all complex UI logic, database operations, and utility functions delegated to their respective managers and classes.
+<state_snapshot> <overall_goal> Refactor MainActivity.java to improve maintainability by extracting UI customization and utility logic. </overall_goal>
+
+-----------------------------------------------------------------------
 

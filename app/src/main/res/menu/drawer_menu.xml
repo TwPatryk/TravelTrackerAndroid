@@ -8,8 +8,49 @@
 
     <item android:title="Your Trips">
         <menu>
-            <!-- Grupa dla dynamicznych wpisów -->
             <group android:id="@+id/group_entries" />
+        </menu>
+    </item>
+
+    <item android:title="Backup &amp; Restore">
+        <menu>
+            <item
+                android:id="@+id/nav_backup_export"
+                android:title="Export Database"
+                android:icon="@drawable/ic_export"/>
+            <item
+                android:id="@+id/nav_backup_import"
+                android:title="Import Database"
+                android:icon="@drawable/ic_import"/>
+            <item
+                android:id="@+id/nav_export_all"
+                android:title="Export All (Zip)"
+                android:icon="@drawable/ic_zip"/>
+        </menu>
+    </item>
+
+    <item android:title="Customization">
+        <menu>
+            <item
+                android:id="@+id/nav_theme_color"
+                android:title="Theme Color"
+                android:icon="@drawable/ic_palette"/>
+            <item
+                android:id="@+id/nav_main_bg"
+                android:title="Main Background"
+                android:icon="@drawable/ic_image"/>
+            <item
+                android:id="@+id/nav_toolbar_bg"
+                android:title="Toolbar Background"
+                android:icon="@drawable/ic_image"/>
+            <item
+                android:id="@+id/nav_fab_bg"
+                android:title="FAB Background"
+                android:icon="@drawable/ic_image"/>
+            <item
+                android:id="@+id/nav_item_style"
+                android:title="Item Style"
+                android:icon="@drawable/ic_style"/>
         </menu>
     </item>
 

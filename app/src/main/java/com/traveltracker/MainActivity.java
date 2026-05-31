@@ -200,30 +200,12 @@ public class MainActivity extends AppCompatActivity {
 
         fab.setOnClickListener(v -> openAddEditFragment(null));
 
-        Button btnExport = findViewById(R.id.btn_export);
-        Button btnExportAll = findViewById(R.id.btn_export_all);
-        Button btnImport = findViewById(R.id.btn_import);
-        Button btnSetBg = findViewById(R.id.btn_set_background);
-        Button btnSetToolbarBg = findViewById(R.id.btn_set_toolbar_background);
-        Button btnSetFabBg = findViewById(R.id.btn_set_fab_background);
-        Button btnSetItemBg = findViewById(R.id.btn_set_item_background);
-        Button btnChangeTheme = findViewById(R.id.btn_change_theme);
-
-        btnExport.setOnClickListener(v -> exportLauncher.launch("travel_tracker_backup.db"));
-        btnExportAll.setOnClickListener(v -> exportAllLauncher.launch("travel_tracker_full_backup.zip"));
-        btnImport.setOnClickListener(v -> importLauncher.launch(new String[]{"application/octet-stream", "application/zip", "*/*"}));
-        btnSetBg.setOnClickListener(v -> uiSettingsManager.showBackgroundSettingsDialog("main_bg_"));
-        btnSetToolbarBg.setOnClickListener(v -> uiSettingsManager.showBackgroundSettingsDialog("toolbar_bg_"));
-        btnSetFabBg.setOnClickListener(v -> uiSettingsManager.showBackgroundSettingsDialog("fab_bg_"));
-        btnSetItemBg.setOnClickListener(v -> uiSettingsManager.showBackgroundSettingsDialog("item_bg_"));
-        btnChangeTheme.setOnClickListener(v -> uiSettingsManager.showThemeChooserDialog());
-
         uiSettingsManager.applyThemeSettings();
     }
 
     private void setupDrawer() {
         ImageButton menuButton = findViewById(R.id.menu_button);
-        menuButton.setOnClickListener(v -> drawerLayout.openDrawer(findViewById(R.id.drawer_content)));
+        menuButton.setOnClickListener(v -> drawerLayout.openDrawer(findViewById(R.id.nav_view)));
 
         ImageButton filterButton = findViewById(R.id.filter_button);
         filterButton.setOnClickListener(v -> {

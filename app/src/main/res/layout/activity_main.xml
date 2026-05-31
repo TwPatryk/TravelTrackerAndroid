@@ -195,120 +195,14 @@
     </FrameLayout>
 
     <!-- Sidebar (Navigation Drawer) -->
-    <androidx.core.widget.NestedScrollView
-        android:id="@+id/drawer_content"
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/nav_view"
         android:layout_width="280dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        android:fillViewport="true"
         android:background="@android:color/white"
-        android:clickable="true"
-        android:focusable="true">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingBottom="80dp">
-
-            <com.google.android.material.navigation.NavigationView
-                android:id="@+id/nav_view"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:menu="@menu/drawer_menu"/>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="#DDDDDD"
-                android:layout_marginTop="8dp"/>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="8dp">
-
-                <Button
-                    android:id="@+id/btn_export_all"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Export All (Zip)"
-                    android:layout_marginBottom="4dp"
-                    style="@style/Widget.MaterialComponents.Button.UnelevatedButton"/>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <Button
-                        android:id="@+id/btn_export"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Export DB"
-                        android:textSize="11sp"
-                        android:layout_marginEnd="4dp"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
-
-                    <Button
-                        android:id="@+id/btn_import"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Import DB"
-                        android:textSize="11sp"
-                        android:layout_marginStart="4dp"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
-                </LinearLayout>
-            </LinearLayout>
-
-            <Button
-                android:id="@+id/btn_set_background"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Set Background"
-                android:layout_margin="8dp"
-                android:paddingStart="16dp"
-                style="@style/Widget.MaterialComponents.Button.TextButton"/>
-
-            <Button
-                android:id="@+id/btn_set_toolbar_background"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Set Toolbar Background"
-                android:layout_margin="8dp"
-                android:paddingStart="16dp"
-                style="@style/Widget.MaterialComponents.Button.TextButton"/>
-
-            <Button
-                android:id="@+id/btn_set_fab_background"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/set_fab_background"
-                android:layout_margin="8dp"
-                android:paddingStart="16dp"
-                style="@style/Widget.MaterialComponents.Button.TextButton"/>
-
-            <Button
-                android:id="@+id/btn_change_theme"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/change_theme"
-                android:layout_margin="8dp"
-                android:paddingStart="16dp"
-                style="@style/Widget.MaterialComponents.Button.TextButton"/>
-
-            <Button
-                android:id="@+id/btn_set_item_background"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Set Items Background"
-                android:layout_margin="8dp"
-                android:paddingStart="16dp"
-                style="@style/Widget.MaterialComponents.Button.TextButton"/>
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+        android:fitsSystemWindows="true"
+        app:menu="@menu/drawer_menu"
+        app:headerLayout="@layout/nav_header"/>
 
 </androidx.drawerlayout.widget.DrawerLayout>

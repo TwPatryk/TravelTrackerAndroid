@@ -119,10 +119,11 @@
                     com.bumptech.glide.RequestBuilder<Drawable> requestBuilder =
                             Glide.with(activity).load(uri).apply(bgOptions);
     
+                    ImageView.ScaleType st = getScaleType(scaleTypeStr);
                     backgroundImageView.setVisibility(View.VISIBLE);
-                    backgroundImageView.setScaleType(getScaleType(scaleTypeStr));
+                    backgroundImageView.setScaleType(st);
     
-                    if (getScaleType(scaleTypeStr) == ImageView.ScaleType.MATRIX || "CENTER_CROP".equals(scaleTypeStr)) {
+                    if (st == ImageView.ScaleType.MATRIX) {
                         backgroundImageView.setScaleType(ImageView.ScaleType.MATRIX);
     
                         requestBuilder = requestBuilder.listener(new RequestListener<Drawable>() {
@@ -205,10 +206,11 @@
                     com.bumptech.glide.RequestBuilder<Drawable> tRequestBuilder =
                             Glide.with(activity).load(Uri.parse(tPath)).apply(bgOptions);
     
+                    ImageView.ScaleType tSt = getScaleType(tScaleTypeStr);
                     toolbarBackgroundImageView.setVisibility(View.VISIBLE);
-                    toolbarBackgroundImageView.setScaleType(getScaleType(tScaleTypeStr));
+                    toolbarBackgroundImageView.setScaleType(tSt);
     
-                    if (getScaleType(tScaleTypeStr) == ImageView.ScaleType.MATRIX || "CENTER_CROP".equals(tScaleTypeStr)) {
+                    if (tSt == ImageView.ScaleType.MATRIX) {
                         toolbarBackgroundImageView.setScaleType(ImageView.ScaleType.MATRIX);
     
                         tRequestBuilder = tRequestBuilder.listener(new RequestListener<Drawable>() {
@@ -312,10 +314,11 @@
                     com.bumptech.glide.RequestBuilder<Drawable> fRequestBuilder =
                             Glide.with(activity).load(Uri.parse(fPath)).apply(bgOptions);
     
+                    ImageView.ScaleType fSt = getScaleType(fScaleTypeStr);
                     fabBackgroundImageView.setVisibility(View.VISIBLE);
-                    fabBackgroundImageView.setScaleType(getScaleType(fScaleTypeStr));
+                    fabBackgroundImageView.setScaleType(fSt);
     
-                    if (getScaleType(fScaleTypeStr) == ImageView.ScaleType.MATRIX || "CENTER_CROP".equals(fScaleTypeStr)) {
+                    if (fSt == ImageView.ScaleType.MATRIX) {
                         fabBackgroundImageView.setScaleType(ImageView.ScaleType.MATRIX);
     
                         fRequestBuilder = fRequestBuilder.listener(new RequestListener<Drawable>() {
@@ -413,6 +416,19 @@
             SeekBar seekOffsetX = dialogView.findViewById(R.id.seekbar_offset_x);
             SeekBar seekOffsetY = dialogView.findViewById(R.id.seekbar_offset_y);
             View layoutOffsets = dialogView.findViewById(R.id.layout_offsets);
+            Button btnSavePosition = dialogView.findViewById(R.id.btn_save_position);
+    
+            if ("toolbar_bg_".equals(prefix)) {
+                btnSavePosition.setVisibility(View.VISIBLE);
+                btnSavePosition.setOnClickListener(v -> {
+                    float ox = seekOffsetX.getProgress() / 100f;
+                    float oy = seekOffsetY.getProgress() / 100f;
+                    dbHelper.setGlobalSetting(prefix + "offset_x", String.valueOf(ox));
+                    dbHelper.setGlobalSetting(prefix + "offset_y", String.valueOf(oy));
+                    dbHelper.setGlobalSetting(prefix + "scale_type", "CENTER_CROP_CUSTOM");
+                    applyBackgroundSettings();
+                });
+            }
     
             Button btnSelect = dialogView.findViewById(R.id.btn_select_image);
             Button btnSelectColor = dialogView.findViewById(R.id.btn_select_color);
@@ -431,15 +447,20 @@
             seekOffsetY.setProgress((int) ((currentOffsetY != null ? Float.parseFloat(currentOffsetY) : 0.5f) * 100));
     
             String currentScale = dbHelper.getGlobalSetting(prefix + "scale_type");
+            
+            // Logika wymuszająca Stretch to Fill (FIT_XY) jako startowy wybór
+            rgScaleType.setOnCheckedChangeListener(null); // Tymczasowo usuń listener
+            rgScaleType.check(R.id.rb_fit_xy);
+            if (layoutOffsets != null) layoutOffsets.setVisibility(View.GONE);
+
             if ("FIT_CENTER".equals(currentScale)) {
                 rgScaleType.check(R.id.rb_fit_center);
-                if (layoutOffsets != null) layoutOffsets.setVisibility(View.GONE);
-            } else if ("FIT_XY".equals(currentScale)) {
-                rgScaleType.check(R.id.rb_fit_xy);
-                if (layoutOffsets != null) layoutOffsets.setVisibility(View.GONE);
-            } else {
+            } else if ("CENTER_CROP_CUSTOM".equals(currentScale)) {
                 rgScaleType.check(R.id.rb_center_crop);
                 if (layoutOffsets != null) layoutOffsets.setVisibility(View.VISIBLE);
+            } else {
+                // Jeśli null, CENTER_CROP lub MATRIX - zostawiamy FIT_XY i naprawiamy bazę
+                dbHelper.setGlobalSetting(prefix + "scale_type", "FIT_XY");
             }
     
             seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -608,12 +629,11 @@
                     float opacity = seekBar.getProgress() / 100f;
                     dbHelper.setGlobalSetting(prefix + "opacity", String.valueOf(opacity));
     
-                    String selectedScale = "CENTER_CROP_CUSTOM";
                     int checkedId = rgScaleType.getCheckedRadioButtonId();
+                    String selectedScale = "FIT_XY"; // Default
                     if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
-                    else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
+                    else if (checkedId == R.id.rb_center_crop) selectedScale = "CENTER_CROP_CUSTOM";
                     dbHelper.setGlobalSetting(prefix + "scale_type", selectedScale);
-    
     
                     int checkedContentId = rgContentColor.getCheckedRadioButtonId();
                     if (checkedContentId == rbWhite.getId()) dbHelper.setGlobalSetting("toolbar_content_color", "#FFFFFFFF");
@@ -627,13 +647,12 @@
                     float opacity = seekBar.getProgress() / 100f;
                     dbHelper.setGlobalSetting(prefix + "opacity", String.valueOf(opacity));
     
-                    String selectedScale = "CENTER_CROP_CUSTOM";
                     int checkedId = rgScaleType.getCheckedRadioButtonId();
+                    String selectedScale = "FIT_XY"; // Nowy domyślny
                     if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
-                    else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
+                    else if (checkedId == R.id.rb_center_crop) selectedScale = "CENTER_CROP_CUSTOM";
+                    
                     dbHelper.setGlobalSetting(prefix + "scale_type", selectedScale);
-    
-    
                     applyBackgroundSettings();
                 });
             } else {
@@ -642,13 +661,12 @@
                     float opacity = seekBar.getProgress() / 100f;
                     dbHelper.setGlobalSetting(prefix + "opacity", String.valueOf(opacity));
     
-                    String selectedScale = "CENTER_CROP_CUSTOM";
                     int checkedId = rgScaleType.getCheckedRadioButtonId();
+                    String selectedScale = "FIT_XY"; // Default
                     if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
-                    else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
-    
+                    else if (checkedId == R.id.rb_center_crop) selectedScale = "CENTER_CROP_CUSTOM";
+                    
                     dbHelper.setGlobalSetting(prefix + "scale_type", selectedScale);
-    
     
                     applyBackgroundSettings();
                 });
@@ -677,9 +695,9 @@
                     dbHelper.setGlobalSetting("item_font_color", "#FF000000");
                 } else if ("toolbar_bg_".equals(prefix)) {
                     dbHelper.setGlobalSetting("toolbar_content_color", "#FFFFFFFF");
-                    dbHelper.setGlobalSetting(prefix + "scale_type", "CENTER_CROP");
+                    dbHelper.setGlobalSetting(prefix + "scale_type", "FIT_XY");
                 } else {
-                    dbHelper.setGlobalSetting(prefix + "scale_type", "CENTER_CROP");
+                    dbHelper.setGlobalSetting(prefix + "scale_type", "FIT_XY");
                 }
                 applyBackgroundSettings();
                 dialog.dismiss();
@@ -951,11 +969,10 @@
         }
     
         private ImageView.ScaleType getScaleType(String scaleTypeStr) {
-            if ("FIT_CENTER".equals(scaleTypeStr)) return ImageView.ScaleType.FIT_CENTER;
-            if ("FIT_XY".equals(scaleTypeStr)) return ImageView.ScaleType.FIT_XY;
-            if ("CENTER_CROP_CUSTOM".equals(scaleTypeStr)) return ImageView.ScaleType.MATRIX;
-            return ImageView.ScaleType.CENTER_CROP;
-        }
+        if ("FIT_CENTER".equals(scaleTypeStr)) return ImageView.ScaleType.FIT_CENTER;
+        if ("CENTER_CROP_CUSTOM".equals(scaleTypeStr)) return ImageView.ScaleType.MATRIX;
+        return ImageView.ScaleType.FIT_XY;
+    }
     
         private int safeParseColor(String colorHex, int fallbackColor) {
             if (colorHex == null || colorHex.isEmpty()) return fallbackColor;

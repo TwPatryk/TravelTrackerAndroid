@@ -632,7 +632,7 @@ public class AddEditEntryFragment extends DialogFragment {
                 backgroundImageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
             } else if ("FIT_XY".equals(scaleTypeStr)) {
                 backgroundImageView.setScaleType(ImageView.ScaleType.FIT_XY);
-            } else if ("CENTER_CROP_CUSTOM".equals(scaleTypeStr) || "CENTER_CROP".equals(scaleTypeStr)) {
+            } else if ("CENTER_CROP_CUSTOM".equals(scaleTypeStr) || "CENTER_CROP".equals(scaleTypeStr) || "MATRIX".equals(scaleTypeStr)) {
                 backgroundImageView.setScaleType(ImageView.ScaleType.MATRIX);
                 
                 final float offX = currentEntry.getBackgroundOffsetX();
@@ -683,7 +683,7 @@ public class AddEditEntryFragment extends DialogFragment {
                     }
                 });
             } else {
-                backgroundImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                backgroundImageView.setScaleType(ImageView.ScaleType.FIT_XY);
             }
 
             requestBuilder.into(backgroundImageView);
@@ -736,15 +736,19 @@ public class AddEditEntryFragment extends DialogFragment {
         seekOffsetY.setProgress((int) (currentEntry.getBackgroundOffsetY() * 100));
 
         String currentScale = currentEntry.getBackgroundScaleType();
+        
+        // Logika wymuszająca Stretch to Fill (FIT_XY) jako domyślny wybór i migrację
+        rgScaleType.check(R.id.rb_fit_xy);
+        if (layoutOffsets != null) layoutOffsets.setVisibility(View.GONE);
+
         if ("FIT_CENTER".equals(currentScale)) {
             rgScaleType.check(R.id.rb_fit_center);
-            if (layoutOffsets != null) layoutOffsets.setVisibility(View.GONE);
-        } else if ("FIT_XY".equals(currentScale)) {
-            rgScaleType.check(R.id.rb_fit_xy);
-            if (layoutOffsets != null) layoutOffsets.setVisibility(View.GONE);
-        } else {
+        } else if ("CENTER_CROP_CUSTOM".equals(currentScale)) {
             rgScaleType.check(R.id.rb_center_crop);
             if (layoutOffsets != null) layoutOffsets.setVisibility(View.VISIBLE);
+        } else {
+            // Jeśli null, CENTER_CROP lub MATRIX - zostawiamy FIT_XY i aktualizujemy model
+            currentEntry.setBackgroundScaleType("FIT_XY");
         }
 
         dialog.setOnDismissListener(d -> {
@@ -752,10 +756,9 @@ public class AddEditEntryFragment extends DialogFragment {
             currentEntry.setBackgroundOpacity(opacity);
             
             int checkedId = rgScaleType.getCheckedRadioButtonId();
-            String selectedScale;
+            String selectedScale = "FIT_XY"; // Domyślnie
             if (checkedId == R.id.rb_fit_center) selectedScale = "FIT_CENTER";
-            else if (checkedId == R.id.rb_fit_xy) selectedScale = "FIT_XY";
-            else selectedScale = "CENTER_CROP_CUSTOM";
+            else if (checkedId == R.id.rb_center_crop) selectedScale = "CENTER_CROP_CUSTOM";
             
             currentEntry.setBackgroundScaleType(selectedScale);
             currentEntry.setBackgroundOffsetX(seekOffsetX.getProgress() / 100f);

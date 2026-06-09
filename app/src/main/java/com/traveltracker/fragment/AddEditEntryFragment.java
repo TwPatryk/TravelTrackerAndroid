@@ -120,7 +120,24 @@ public class AddEditEntryFragment extends DialogFragment {
 
     private void saveTrackToInternalStorage(Uri uri) {
         try {
-            String fileName = "TRACK_" + System.currentTimeMillis() + ".gpx";
+            String originalName = "track.gpx";
+            android.database.Cursor cursor = requireContext().getContentResolver().query(uri, null, null, null, null);
+            if (cursor != null) {
+                int nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                if (nameIndex != -1 && cursor.moveToFirst()) {
+                    originalName = cursor.getString(nameIndex);
+                }
+                cursor.close();
+            }
+
+            String extension = "gpx";
+            if (originalName.toLowerCase().endsWith(".kml")) {
+                extension = "kml";
+            } else if (originalName.toLowerCase().endsWith(".kmz")) {
+                extension = "kmz";
+            }
+
+            String fileName = "TRACK_" + System.currentTimeMillis() + "." + extension;
             String title = titleInput.getText().toString().trim();
             File targetDir = title.isEmpty() ? requireContext().getFilesDir() : getEntryDirectory(title);
             File file = new File(targetDir, fileName);
@@ -138,7 +155,7 @@ public class AddEditEntryFragment extends DialogFragment {
             is.close();
 
             RouteTrack newTrack = new RouteTrack();
-            newTrack.setName("New Track");
+            newTrack.setName(originalName.replaceFirst("[.][^.]+$", "")); // Remove extension for display name
             newTrack.setFilePath(file.getAbsolutePath());
             newTrack.setOrder(itemsList.size());
             itemsList.add(newTrack);
@@ -1297,14 +1314,24 @@ public class AddEditEntryFragment extends DialogFragment {
                     Uri contentUri = androidx.core.content.FileProvider.getUriForFile(requireContext(), 
                         "com.traveltracker.fileprovider", file);
 
+                    String mimeType = "*/*";
+                    String fileName = file.getName().toLowerCase();
+                    if (fileName.endsWith(".gpx")) {
+                        mimeType = "application/gpx+xml";
+                    } else if (fileName.endsWith(".kml")) {
+                        mimeType = "application/vnd.google-earth.kml+xml";
+                    } else if (fileName.endsWith(".kmz")) {
+                        mimeType = "application/vnd.google-earth.kmz";
+                    }
+
                     Intent intent = new Intent(Intent.ACTION_VIEW);
-                    intent.setDataAndType(contentUri, "application/gpx+xml");
+                    intent.setDataAndType(contentUri, mimeType);
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     
                     try {
                         startActivity(Intent.createChooser(intent, "Open track with..."));
                     } catch (Exception e) {
-                        // Fallback to generic type
+                        // Fallback to generic type if specific fails
                         intent.setDataAndType(contentUri, "*/*");
                         try {
                             startActivity(Intent.createChooser(intent, "Open track with..."));

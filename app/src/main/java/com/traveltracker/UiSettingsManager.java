@@ -21,6 +21,8 @@
     import androidx.annotation.Nullable;
     import androidx.appcompat.app.AlertDialog;
     import androidx.core.content.ContextCompat;
+    import androidx.core.view.WindowCompat;
+    import androidx.core.view.WindowInsetsControllerCompat;
     
     import com.bumptech.glide.Glide;
     import com.bumptech.glide.load.engine.DiskCacheStrategy;
@@ -201,7 +203,35 @@
     
                 activity.getWindow().setStatusBarColor(tColor);
                 if (toolbar != null) toolbar.setBackgroundColor(Color.TRANSPARENT);
-    
+
+                // Wyznaczanie koloru tła dla paska nawigacji i okna
+                int mainEffectiveColor = Color.WHITE;
+                if (path == null || path.isEmpty()) {
+                    if (colorHex != null && !colorHex.isEmpty()) {
+                        mainEffectiveColor = safeParseColor(colorHex, Color.WHITE);
+                    }
+                } else {
+                    float opacity = safeParseFloat(opacityStr, 1.0f);
+                    mainEffectiveColor = (opacity < 0.5f) ? Color.WHITE : Color.BLACK;
+                }
+
+                // Ustawienie koloru paska nawigacji oraz tła okna i DrawerLayout
+                int finalColor = mainEffectiveColor;
+                activity.getWindow().setNavigationBarColor(path == null || path.isEmpty() ? finalColor : Color.TRANSPARENT);
+                activity.getWindow().getDecorView().setBackgroundColor(finalColor);
+                
+                View drawer = activity.findViewById(R.id.drawer_layout);
+                if (drawer != null) {
+                    drawer.setBackgroundColor(finalColor);
+                }
+
+                // Aktualizacja koloru ikon na paskach systemowych
+                WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(activity.getWindow(), activity.getWindow().getDecorView());
+                if (controller != null) {
+                    controller.setAppearanceLightStatusBars(isColorLight(tColor));
+                    controller.setAppearanceLightNavigationBars(isColorLight(finalColor));
+                }
+
                 if (tPath != null && !tPath.isEmpty()) {
                     com.bumptech.glide.RequestBuilder<Drawable> tRequestBuilder =
                             Glide.with(activity).load(Uri.parse(tPath)).apply(bgOptions);
@@ -975,13 +1005,19 @@
     }
     
         private int safeParseColor(String colorHex, int fallbackColor) {
-            if (colorHex == null || colorHex.isEmpty()) return fallbackColor;
-            try {
-                return Color.parseColor(colorHex);
-            } catch (Exception e) {
-                return fallbackColor;
-            }
+        if (colorHex == null || colorHex.isEmpty()) return fallbackColor;
+        try {
+            return Color.parseColor(colorHex);
+        } catch (Exception e) {
+            return fallbackColor;
         }
+    }
+
+    private boolean isColorLight(int color) {
+        if (Color.alpha(color) < 128 && color != Color.TRANSPARENT) return true; 
+        double darkness = 1 - (0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)) / 255;
+        return darkness < 0.5;
+    }
     
         private float safeParseFloat(String value, float defaultValue) {
             if (value == null || value.isEmpty()) return defaultValue;

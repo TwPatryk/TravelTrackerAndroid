@@ -1,8 +1,11 @@
 package com.traveltracker;
 
 import android.content.Intent;
+import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -15,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -115,6 +119,19 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // Włączenie Edge-to-Edge
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        
+        // Ustawienie paska na przezroczysty i wyłączenie wymuszonego kontrastu (Android 10+)
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getWindow().setStatusBarContrastEnforced(false);
+        }
+
         setContentView(R.layout.activity_main);
 
         dbHelper = DatabaseHelper.getInstance(this);
@@ -146,15 +163,22 @@ public class MainActivity extends AppCompatActivity {
             ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.drawer_layout), (v, insets) -> {
                 Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
                 
-                View mainContent = findViewById(R.id.main_toolbar).getParent() instanceof View ? (View)findViewById(R.id.main_toolbar).getParent() : null;
-                if (mainContent != null) {
-                    mainContent.setPadding(0, systemBars.top, 0, 0);
+                View toolbarContainer = findViewById(R.id.main_toolbar).getParent() instanceof View ? (View)findViewById(R.id.main_toolbar).getParent() : null;
+                if (toolbarContainer != null) {
+                    toolbarContainer.setPadding(0, systemBars.top, 0, 0);
                 }
                 
                 if (recyclerView != null) {
                     recyclerView.setPadding(recyclerView.getPaddingLeft(), recyclerView.getPaddingTop(), 
                                            recyclerView.getPaddingRight(), systemBars.bottom + (int)(8 * getResources().getDisplayMetrics().density));
                     recyclerView.setClipToPadding(false);
+                }
+
+                if (fab != null && fab.getParent() instanceof View) {
+                    View fabContainer = (View) fab.getParent();
+                    ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) fabContainer.getLayoutParams();
+                    lp.bottomMargin = systemBars.bottom + (int)(16 * getResources().getDisplayMetrics().density);
+                    fabContainer.setLayoutParams(lp);
                 }
                 
                 return insets;

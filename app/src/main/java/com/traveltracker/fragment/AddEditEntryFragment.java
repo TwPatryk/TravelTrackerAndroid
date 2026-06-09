@@ -211,8 +211,7 @@ public class AddEditEntryFragment extends DialogFragment {
             
             // Fullscreen / Edge-to-edge
             androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false);
-            window.setStatusBarColor(android.graphics.Color.TRANSPARENT);
-            window.setNavigationBarColor(android.graphics.Color.TRANSPARENT);
+            // Colors will be set in applyBackgroundSettings()
         }
     }
 
@@ -735,6 +734,11 @@ public class AddEditEntryFragment extends DialogFragment {
             }
         }
 
+        // Apply background color to the root view as well, so status bar area matches when padded
+        if (getView() != null) {
+            getView().setBackgroundColor(effectiveColor);
+        }
+
         android.view.Window window = null;
         if (getDialog() != null) {
             window = getDialog().getWindow();
@@ -743,15 +747,16 @@ public class AddEditEntryFragment extends DialogFragment {
         }
 
         if (window != null) {
-            // Jeśli jest zdjęcie, ustawiamy przezroczystość, by tło "prześwitywało"
-            // Jeśli kolor, ustawiamy ten konkretny kolor
-            window.setNavigationBarColor((path != null && !path.isEmpty()) ? 
-                    android.graphics.Color.TRANSPARENT : effectiveColor);
+            // Ustawiamy kolor pasków na nieprzezroczysty (zgodnie z życzeniem i dla spójności)
+            window.setNavigationBarColor(effectiveColor);
+            window.setStatusBarColor(effectiveColor);
             
             androidx.core.view.WindowInsetsControllerCompat controller = 
                     androidx.core.view.WindowCompat.getInsetsController(window, window.getDecorView());
             if (controller != null) {
-                controller.setAppearanceLightNavigationBars(isColorLight(effectiveColor));
+                boolean isLight = isColorLight(effectiveColor);
+                controller.setAppearanceLightNavigationBars(isLight);
+                controller.setAppearanceLightStatusBars(isLight);
             }
         }
 

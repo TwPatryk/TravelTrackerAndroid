@@ -224,7 +224,14 @@ public class AddEditEntryFragment extends DialogFragment {
         // Handle Insets for content padding
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
             androidx.core.graphics.Insets systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
-            v.setPadding(0, systemBars.top, 0, systemBars.bottom);
+            v.setPadding(0, systemBars.top, 0, 0); // No bottom padding here
+
+            android.view.ViewParent parent = v.findViewById(R.id.items_recycler_view).getParent().getParent();
+            if (parent instanceof androidx.core.widget.NestedScrollView) {
+                androidx.core.widget.NestedScrollView scrollView = (androidx.core.widget.NestedScrollView) parent;
+                scrollView.setPadding(0, 0, 0, systemBars.bottom);
+                scrollView.setClipToPadding(false);
+            }
             return insets;
         });
 
@@ -408,6 +415,12 @@ public class AddEditEntryFragment extends DialogFragment {
         } catch (Exception e) {
             return primaryColor;
         }
+    }
+
+    private boolean isColorLight(int color) {
+        if (android.graphics.Color.alpha(color) < 128 && color != android.graphics.Color.TRANSPARENT) return true;
+        double darkness = 1 - (0.299 * android.graphics.Color.red(color) + 0.587 * android.graphics.Color.green(color) + 0.114 * android.graphics.Color.blue(color)) / 255;
+        return darkness < 0.5;
     }
 
     private void loadStyleSettings() {
@@ -710,6 +723,37 @@ public class AddEditEntryFragment extends DialogFragment {
         String colorHex = currentEntry.getBackgroundColor();
         float opacity = currentEntry.getBackgroundOpacity();
         String scaleTypeStr = currentEntry.getBackgroundScaleType();
+
+        int effectiveColor = android.graphics.Color.WHITE;
+        if (path != null && !path.isEmpty()) {
+            effectiveColor = (opacity < 0.5f) ? android.graphics.Color.WHITE : android.graphics.Color.BLACK;
+        } else if (colorHex != null && !colorHex.isEmpty()) {
+            try {
+                effectiveColor = android.graphics.Color.parseColor(colorHex);
+            } catch (Exception e) {
+                effectiveColor = android.graphics.Color.WHITE;
+            }
+        }
+
+        android.view.Window window = null;
+        if (getDialog() != null) {
+            window = getDialog().getWindow();
+        } else if (getActivity() != null) {
+            window = getActivity().getWindow();
+        }
+
+        if (window != null) {
+            // Jeśli jest zdjęcie, ustawiamy przezroczystość, by tło "prześwitywało"
+            // Jeśli kolor, ustawiamy ten konkretny kolor
+            window.setNavigationBarColor((path != null && !path.isEmpty()) ? 
+                    android.graphics.Color.TRANSPARENT : effectiveColor);
+            
+            androidx.core.view.WindowInsetsControllerCompat controller = 
+                    androidx.core.view.WindowCompat.getInsetsController(window, window.getDecorView());
+            if (controller != null) {
+                controller.setAppearanceLightNavigationBars(isColorLight(effectiveColor));
+            }
+        }
 
         if (path != null && !path.isEmpty()) {
             com.bumptech.glide.RequestBuilder<android.graphics.drawable.Drawable> requestBuilder = Glide.with(this)

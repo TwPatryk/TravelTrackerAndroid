@@ -14,7 +14,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.traveltracker.R;
 import com.traveltracker.database.TravelEntry;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> {
 
@@ -24,15 +26,54 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
     private int itemColor = android.graphics.Color.WHITE;
     private float itemOpacity = 1.0f;
     private int fontColor = android.graphics.Color.BLACK;
+    private Set<Long> selectedItems = new HashSet<>();
+    private boolean isSelectionMode = false;
 
     public interface OnEntryClickListener {
         void onEntryClick(TravelEntry entry);
         void onEntryLongClick(TravelEntry entry);
+        void onSelectionChanged(int count);
     }
 
     public EntryAdapter(List<TravelEntry> entries, OnEntryClickListener listener) {
         this.entries = entries;
         this.listener = listener;
+    }
+
+    public void setSelectionMode(boolean selectionMode) {
+        this.isSelectionMode = selectionMode;
+        if (!selectionMode) {
+            selectedItems.clear();
+        }
+        notifyDataSetChanged();
+    }
+
+    public boolean isSelectionMode() {
+        return isSelectionMode;
+    }
+
+    public void toggleSelection(long entryId) {
+        if (selectedItems.contains(entryId)) {
+            selectedItems.remove(entryId);
+        } else {
+            selectedItems.add(entryId);
+        }
+        notifyDataSetChanged();
+        if (listener != null) {
+            listener.onSelectionChanged(selectedItems.size());
+        }
+    }
+
+    public Set<Long> getSelectedItems() {
+        return selectedItems;
+    }
+
+    public void clearSelection() {
+        selectedItems.clear();
+        notifyDataSetChanged();
+        if (listener != null) {
+            listener.onSelectionChanged(0);
+        }
     }
 
     public void setItemTouchHelper(ItemTouchHelper itemTouchHelper) {
@@ -108,7 +149,27 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
         holder.dragHandle.setColorFilter(fontColor);
         holder.dragHandle.setAlpha(0.6f);
 
-        holder.itemView.setOnClickListener(v -> listener.onEntryClick(entry));
+        // Selection overlay
+        if (isSelectionMode) {
+            holder.itemView.setSelected(selectedItems.contains(entry.getId()));
+            holder.dragHandle.setVisibility(View.GONE);
+            holder.selectionCircle.setVisibility(View.VISIBLE);
+            holder.selectionCircle.setImageResource(selectedItems.contains(entry.getId()) 
+                    ? R.drawable.ic_check_circle : R.drawable.ic_circle_outline);
+            holder.selectionCircle.setColorFilter(fontColor);
+        } else {
+            holder.itemView.setSelected(false);
+            holder.dragHandle.setVisibility(View.VISIBLE);
+            holder.selectionCircle.setVisibility(View.GONE);
+        }
+
+        holder.itemView.setOnClickListener(v -> {
+            if (isSelectionMode) {
+                toggleSelection(entry.getId());
+            } else {
+                listener.onEntryClick(entry);
+            }
+        });
         holder.itemView.setOnLongClickListener(v -> {
             listener.onEntryLongClick(entry);
             return true;
@@ -132,6 +193,7 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
         TextView infoTextView;
         TextView tagsTextView;
         ImageView dragHandle;
+        ImageView selectionCircle;
 
         ViewHolder(View itemView) {
             super(itemView);
@@ -139,6 +201,7 @@ public class EntryAdapter extends RecyclerView.Adapter<EntryAdapter.ViewHolder> 
             infoTextView = itemView.findViewById(R.id.entry_info);
             tagsTextView = itemView.findViewById(R.id.entry_tags);
             dragHandle = itemView.findViewById(R.id.iv_drag_handle);
+            selectionCircle = itemView.findViewById(R.id.iv_selection_circle);
         }
     }
 }

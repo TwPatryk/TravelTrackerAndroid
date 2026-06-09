@@ -4,6 +4,9 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.ActionMode;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -11,6 +14,7 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -47,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
     private final List<TravelEntry> filteredEntries = new ArrayList<>();
     private BackupManager backupManager;
     private UiSettingsManager uiSettingsManager;
+    private ActionMode actionMode;
 
     private Toolbar toolbar;
     private FloatingActionButton fab;
@@ -285,6 +290,22 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onEntryLongClick(TravelEntry entry) {
+                if (actionMode == null) {
+                    actionMode = startActionMode(actionModeCallback);
+                    adapter.setSelectionMode(true);
+                    adapter.toggleSelection(entry.getId());
+                }
+            }
+
+            @Override
+            public void onSelectionChanged(int count) {
+                if (actionMode != null) {
+                    if (count == 0) {
+                        actionMode.finish();
+                    } else {
+                        actionMode.setTitle(String.valueOf(count));
+                    }
+                }
             }
         });
         recyclerView.setAdapter(adapter);
@@ -402,5 +423,49 @@ public class MainActivity extends AppCompatActivity {
                 .replace(R.id.main_content, fragment)
                 .addToBackStack(null)
                 .commit();
+    }
+
+    private final ActionMode.Callback actionModeCallback = new ActionMode.Callback() {
+        @Override
+        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+            mode.getMenuInflater().inflate(R.menu.menu_selection, menu);
+            return true;
+        }
+
+        @Override
+        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+            return false;
+        }
+
+        @Override
+        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+            if (item.getItemId() == R.id.action_delete) {
+                deleteSelectedEntries();
+                mode.finish();
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public void onDestroyActionMode(ActionMode mode) {
+            adapter.setSelectionMode(false);
+            actionMode = null;
+        }
+    };
+
+    private void deleteSelectedEntries() {
+        java.util.Set<Long> selectedIds = adapter.getSelectedItems();
+        int count = selectedIds.size();
+        
+        new Thread(() -> {
+            for (Long id : selectedIds) {
+                dbHelper.deleteEntry(id);
+            }
+            runOnUiThread(() -> {
+                Toast.makeText(this, "Deleted " + count + " entries", Toast.LENGTH_SHORT).show();
+                loadInitialData();
+            });
+        }).start();
     }
 }

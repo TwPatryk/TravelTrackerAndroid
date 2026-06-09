@@ -16,6 +16,9 @@ import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -168,6 +171,7 @@ public class AddEditEntryFragment extends DialogFragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setStyle(DialogFragment.STYLE_NORMAL, androidx.appcompat.R.style.Theme_AppCompat_Light_NoActionBar);
+        setHasOptionsMenu(true);
         dbHelper = DatabaseHelper.getInstance(getContext());
         if (getArguments() != null && getArguments().containsKey(ARG_ENTRY_ID)) {
             long entryId = getArguments().getLong(ARG_ENTRY_ID);
@@ -311,7 +315,66 @@ public class AddEditEntryFragment extends DialogFragment {
         btnSave.setOnClickListener(v -> saveEntry());
         btnCancel.setOnClickListener(v -> dismiss());
 
+        setupToolbar(view);
+
+        // Update toolbar when font color changes
+        titleInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                androidx.appcompat.widget.Toolbar toolbar = view.findViewById(R.id.edit_toolbar);
+                if (toolbar != null && currentEntry != null) {
+                    toolbar.setTitle(s.toString().isEmpty() ? (currentEntry.getId() == 0 ? "Add Entry" : "Edit Entry") : s.toString());
+                }
+            }
+        });
+
         return view;
+    }
+
+    private void setupToolbar(View view) {
+        androidx.appcompat.widget.Toolbar toolbar = view.findViewById(R.id.edit_toolbar);
+        if (toolbar != null) {
+            toolbar.setTitle(currentEntry.getId() == 0 ? "Add Entry" : "Edit Entry");
+            toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material);
+            toolbar.setNavigationOnClickListener(v -> dismiss());
+            toolbar.inflateMenu(R.menu.menu_edit_entry);
+            toolbar.setOnMenuItemClickListener(item -> {
+                if (item.getItemId() == R.id.action_delete_single) {
+                    confirmDeleteEntry();
+                    return true;
+                }
+                return false;
+            });
+
+            // Set text color to font color if possible
+            toolbar.setTitleTextColor(itemFontColor);
+            if (toolbar.getNavigationIcon() != null) {
+                toolbar.getNavigationIcon().setTint(itemFontColor);
+            }
+            if (toolbar.getMenu().findItem(R.id.action_delete_single) != null) {
+                toolbar.getMenu().findItem(R.id.action_delete_single).getIcon().setTint(itemFontColor);
+            }
+            
+            if (currentEntry.getId() == 0) {
+                toolbar.getMenu().findItem(R.id.action_delete_single).setVisible(false);
+            }
+        }
+    }
+
+    private void confirmDeleteEntry() {
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Delete Entry")
+                .setMessage("Are you sure you want to delete this entry and all its content?")
+                .setPositiveButton("Delete", (dialog, which) -> {
+                    dbHelper.deleteEntry(currentEntry.getId());
+                    if (onEntrySavedListener != null) {
+                        onEntrySavedListener.onEntrySaved();
+                    }
+                    dismiss();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private int getThemeColor() {
@@ -435,6 +498,17 @@ public class AddEditEntryFragment extends DialogFragment {
         if (btnSave != null) {
             btnSave.setBackgroundTintList(android.content.res.ColorStateList.valueOf(themeColor));
             btnSave.setTextColor(android.graphics.Color.WHITE);
+        }
+
+        androidx.appcompat.widget.Toolbar toolbar = view.findViewById(R.id.edit_toolbar);
+        if (toolbar != null) {
+            toolbar.setTitleTextColor(itemFontColor);
+            if (toolbar.getNavigationIcon() != null) {
+                toolbar.getNavigationIcon().setTint(itemFontColor);
+            }
+            if (toolbar.getMenu().findItem(R.id.action_delete_single) != null) {
+                toolbar.getMenu().findItem(R.id.action_delete_single).getIcon().setTint(itemFontColor);
+            }
         }
 
         if (itemsAdapter != null) {
